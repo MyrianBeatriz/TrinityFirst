@@ -38,12 +38,8 @@ const Navbar = () => {
             <li><Link to="/dashboard" style={styles.link}>Dashboard</Link></li>
             <li><Link to="/events" style={styles.link}>Events</Link></li>
             <li><Link to="/stories" style={styles.link}>Stories</Link></li>
-<<<<<<< HEAD
             <li><Link to="/resources" style={styles.link}>Resources</Link></li>
             <li><Link to={`/profile/${auth.currentUser.uid}`} style={styles.link}>Profile</Link></li>
-=======
-            <li><Link to="/profile" style={styles.link}>Profile</Link></li>
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
             <li>
               <button onClick={handleLogout} style={styles.logoutButton}>Log Out</button>
             </li>

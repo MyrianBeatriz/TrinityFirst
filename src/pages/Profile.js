@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-<<<<<<< HEAD
+
 import { useParams, useNavigate } from "react-router-dom";
 import { auth, firestore, storage } from "../firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -72,36 +72,12 @@ const Profile = () => {
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
-=======
-import { useParams } from "react-router-dom";
-import { firestore } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
-
-const Profile = () => {
-  const { id } = useParams();  // ✅ Get the correct user ID from the URL
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const userRef = doc(firestore, "users", id);  // ✅ Use the correct ID from URL
-        const userSnap = await getDoc(userRef);
-
-        if (userSnap.exists()) {
-          setUser(userSnap.data());
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
       } finally {
         setLoading(false);
       }
     };
 
-<<<<<<< HEAD
+
     fetchUserData();
   }, [id, navigate]);
 
@@ -385,32 +361,13 @@ const Profile = () => {
           </form>
         )}
       </div>
-=======
-    fetchUserProfile();
-  }, [id]);
-
-  if (loading) return <p>Loading...</p>;
-
-  return (
-    <div style={styles.container}>
-      {user ? (
-        <>
-          <h1>{user.firstName} {user.lastName}</h1>
-          <p><strong>Email:</strong> {user.email}</p>
-          <p><strong>Major:</strong> {user.major}</p>
-          <p><strong>Bio:</strong> {user.bio}</p>
-        </>
-      ) : (
-        <p>User not found.</p>
-      )}
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     </div>
   );
 };
 
 const styles = {
   container: {
-<<<<<<< HEAD
+
     maxWidth: "900px",
     margin: "2rem auto",
     padding: "0 1.5rem"
@@ -643,17 +600,4 @@ const styles = {
 };
 
 export default Profile;
-=======
-    maxWidth: "600px",
-    margin: "2rem auto",
-    padding: "2rem",
-    backgroundColor: "white",
-    borderRadius: "12px",
-    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-    textAlign: "center",
-  },
-};
 
-export default Profile;
-
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17

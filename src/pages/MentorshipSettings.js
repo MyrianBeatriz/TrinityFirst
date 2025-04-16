@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { auth, firestore } from "../firebase";
 import { useNavigate } from "react-router-dom";
-<<<<<<< HEAD
+
 import { doc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
-=======
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
 
 const MentorshipSettings = () => {
   const navigate = useNavigate();
   const [mentorshipRole, setMentorshipRole] = useState("");
   const [mentorshipAreas, setMentorshipAreas] = useState([]);
-<<<<<<< HEAD
+
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,11 +39,6 @@ const MentorshipSettings = () => {
     financialAid: false,
     buildingConfidence: false
   });
-=======
-  const [mentorshipExpectations, setMentorshipExpectations] = useState("");
-  const [isEnrolled, setIsEnrolled] = useState(false);
-  const [loading, setLoading] = useState(true);
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
 
   const mentorshipAreasOptions = [
     "Academic Advice",
@@ -62,7 +55,7 @@ const MentorshipSettings = () => {
       const user = auth.currentUser;
       if (!user) return navigate("/login");
 
-<<<<<<< HEAD
+
       try {
         const userRef = doc(firestore, "users", user.uid);
         const userSnap = await getDoc(userRef);
@@ -115,26 +108,12 @@ const MentorshipSettings = () => {
         console.error("Error fetching mentorship data:", error);
         setLoading(false);
       }
-=======
-      const userRef = firestore.collection("mentorship_signups").doc(user.uid);
-      const userSnap = await userRef.get();
-
-      if (userSnap.exists) {
-        const userData = userSnap.data();
-        setMentorshipRole(userData.mentorshipRole || "");
-        setMentorshipAreas(userData.mentorshipAreas || []);
-        setMentorshipExpectations(userData.mentorshipExpectations || "");
-        setIsEnrolled(true);
-      }
-
-      setLoading(false);
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     };
 
     fetchUserData();
   }, [navigate]);
 
-<<<<<<< HEAD
+
   const handleTopicChange = (topic) => {
     setMentorTopics(prev => ({
       ...prev,
@@ -142,15 +121,13 @@ const MentorshipSettings = () => {
     }));
   };
 
-=======
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
   const handleUpdate = async (e) => {
     e.preventDefault();
     const user = auth.currentUser;
     if (!user) return navigate("/login");
 
     try {
-<<<<<<< HEAD
+
       setSaving(true);
       const signupRef = doc(firestore, "mentorship_signups", user.uid);
 
@@ -191,33 +168,20 @@ const MentorshipSettings = () => {
       console.error("Error updating mentorship details:", error);
       alert("There was an error updating your information. Please try again.");
       setSaving(false);
-=======
-      await firestore.collection("mentorship_signups").doc(user.uid).update({
-        mentorshipRole,
-        mentorshipAreas,
-        mentorshipExpectations,
-      });
-
-      alert("Your mentorship preferences have been updated!");
-    } catch (error) {
-      console.error("Error updating mentorship details:", error);
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     }
   };
 
   const handleOptOut = async () => {
-<<<<<<< HEAD
+
     if (!window.confirm("Are you sure you want to opt out of the mentorship program? This will delete your application and cannot be undone.")) {
       return;
     }
     
-=======
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     const user = auth.currentUser;
     if (!user) return navigate("/login");
 
     try {
-<<<<<<< HEAD
+
       await deleteDoc(doc(firestore, "mentorship_signups", user.uid));
       
       // Check if there are any active matches and handle them appropriately
@@ -246,18 +210,11 @@ const MentorshipSettings = () => {
         financialAid: false,
         buildingConfidence: false
       });
-=======
-      await firestore.collection("mentorship_signups").doc(user.uid).delete();
-      setMentorshipRole("");
-      setMentorshipAreas([]);
-      setMentorshipExpectations("");
-      setIsEnrolled(false);
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
 
       alert("You have successfully opted out of the mentorship program.");
     } catch (error) {
       console.error("Error opting out of mentorship:", error);
-<<<<<<< HEAD
+
       alert("There was an error opting out of the program. Please try again.");
     }
   };
@@ -294,35 +251,6 @@ const MentorshipSettings = () => {
                 To change your role, please opt out and submit a new application.
               </span>
             </div>
-=======
-    }
-  };
-
-  if (loading) return <p>Loading...</p>;
-
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>⚙️ Manage Your Mentorship</h1>
-      <p style={styles.description}>Update your mentorship role, preferences, or opt out if needed.</p>
-
-      {!isEnrolled ? (
-        <p style={styles.notEnrolled}>You are not currently enrolled in the mentorship program.</p>
-      ) : (
-        <form onSubmit={handleUpdate} style={styles.form}>
-          {/* Mentorship Role Selection */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Your Role:</label>
-            <select
-              value={mentorshipRole}
-              onChange={(e) => setMentorshipRole(e.target.value)}
-              required
-              style={styles.input}
-            >
-              <option value="">Select Role</option>
-              <option value="Mentee">Mentee</option>
-              <option value="Mentor">Mentor</option>
-            </select>
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
           </div>
 
           {/* Mentorship Areas */}
@@ -348,7 +276,7 @@ const MentorshipSettings = () => {
             </div>
           </div>
 
-<<<<<<< HEAD
+
           {/* Common Fields */}
           <div style={styles.formGroup}>
             <label style={styles.label}>Your Expectations:</label>
@@ -356,21 +284,11 @@ const MentorshipSettings = () => {
               value={expectations}
               onChange={(e) => setExpectations(e.target.value)}
               placeholder="What do you hope to gain from this mentorship experience?"
-=======
-          {/* Mentorship Expectations */}
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Your Expectations:</label>
-            <textarea
-              value={mentorshipExpectations}
-              onChange={(e) => setMentorshipExpectations(e.target.value)}
-              required
-              placeholder="What do you hope to gain from this experience?"
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
               style={styles.textarea}
             />
           </div>
 
-<<<<<<< HEAD
+
           {/* Render different form fields based on role */}
           {mentorshipRole === "Mentor" ? (
             // Mentor Specific Fields
@@ -574,24 +492,11 @@ const MentorshipSettings = () => {
           </div>
         </form>
       )}
-=======
-          {/* Save Changes Button */}
-          <button type="submit" style={styles.button}>💾 Save Changes</button>
-        </form>
-      )}
-
-      {/* Opt-Out Button */}
-      {isEnrolled && (
-        <button onClick={handleOptOut} style={styles.optOutButton}>
-           Opt-Out of Mentorship
-        </button>
-      )}
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     </div>
   );
 };
 
-<<<<<<< HEAD
+
 const styles = {
   container: {
     maxWidth: "800px",
@@ -608,33 +513,19 @@ const styles = {
     height: "300px",
     fontSize: "1.2rem",
     color: "#718096",
-=======
-/** 🔹 Styles for Enhanced Aesthetic */
-const styles = {
-  container: {
-    maxWidth: "600px",
-    margin: "2rem auto",
-    padding: "2rem",
-    backgroundColor: "#f9f9f9",
-    borderRadius: "12px",
-    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-    textAlign: "center",
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
   },
   title: {
     fontSize: "1.8rem",
     color: "#1a365d",
     marginBottom: "0.5rem",
-<<<<<<< HEAD
+
     textAlign: "center",
-=======
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
   },
   description: {
     fontSize: "1rem",
     color: "#555",
     marginBottom: "1.5rem",
-<<<<<<< HEAD
+
     textAlign: "center",
   },
   notEnrolledContainer: {
@@ -658,13 +549,6 @@ const styles = {
     fontWeight: "500",
     border: "none",
     cursor: "pointer",
-=======
-  },
-  notEnrolled: {
-    fontSize: "1rem",
-    color: "#e63946",
-    fontWeight: "600",
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
   },
   form: {
     display: "flex",
@@ -681,7 +565,7 @@ const styles = {
     display: "block",
     marginBottom: "0.5rem",
   },
-<<<<<<< HEAD
+
   readOnlyField: {
     padding: "0.75rem",
     backgroundColor: "#f7fafc",
@@ -706,35 +590,19 @@ const styles = {
   textarea: {
     width: "100%",
     padding: "12px",
-=======
-  input: {
-    width: "100%",
-    padding: "10px",
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     borderRadius: "6px",
     border: "1px solid #cbd5e0",
     fontSize: "1rem",
     backgroundColor: "white",
-<<<<<<< HEAD
+
     minHeight: "120px",
     resize: "vertical",
-=======
-  },
-  textarea: {
-    width: "100%",
-    padding: "10px",
-    borderRadius: "6px",
-    border: "1px solid #cbd5e0",
-    fontSize: "1rem",
-    backgroundColor: "white",
-    minHeight: "80px",
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
   },
   checkboxGroup: {
     display: "flex",
     flexWrap: "wrap",
     gap: "10px",
-<<<<<<< HEAD
+
     backgroundColor: "#f7fafc",
     padding: "1rem",
     borderRadius: "6px",
@@ -748,13 +616,11 @@ const styles = {
     padding: "1rem",
     borderRadius: "6px",
     border: "1px solid #e2e8f0",
-=======
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
   },
   checkboxLabel: {
     display: "flex",
     alignItems: "center",
-<<<<<<< HEAD
+
     fontSize: "0.95rem",
     color: "#1a365d",
     padding: "0.5rem",
@@ -772,15 +638,11 @@ const styles = {
     backgroundColor: "white",
     borderRadius: "4px",
     border: "1px solid #e2e8f0",
-=======
-    fontSize: "0.9rem",
-    color: "#333",
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
   },
   checkbox: {
     marginRight: "8px",
   },
-<<<<<<< HEAD
+
   actionButtons: {
     display: "flex",
     justifyContent: "space-between",
@@ -807,32 +669,9 @@ const styles = {
     fontWeight: "500",
     border: "1px solid #E53E3E",
     cursor: "pointer",
-=======
-  button: {
-    backgroundColor: "#1a365d",
-    color: "white",
-    padding: "12px",
-    border: "none",
-    borderRadius: "6px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    transition: "background-color 0.3s",
-  },
-  optOutButton: {
-    backgroundColor: "#e63946",
-    color: "white",
-    padding: "10px",
-    border: "none",
-    borderRadius: "6px",
-    fontSize: "1rem",
-    cursor: "pointer",
-    marginTop: "15px",
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
   },
 };
 
 export default MentorshipSettings;
-<<<<<<< HEAD
-=======
 
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
+

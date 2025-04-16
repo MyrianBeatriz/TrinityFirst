@@ -156,19 +156,7 @@ const Register = () => {
           />
         </div>
         <div style={styles.formGroup}>
-<<<<<<< HEAD
-=======
-          <label style={styles.label}>Biography</label>
-          <textarea
-            placeholder="Tell us about yourself"
-            value={formData.bio}
-            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-            style={styles.input}
-            required
-          />
-        </div>
-        <div style={styles.formGroup}>
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
+
           <label style={styles.label}>Trinity Email</label>
           <input
             type="email"
@@ -207,3 +195,4 @@ const Register = () => {
 };
 
 export default Register;
+

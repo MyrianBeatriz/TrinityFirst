@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, where, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../firebase';
@@ -137,20 +137,11 @@ const Events = () => {
           ))}
         </div>
       )}
-=======
-import React from 'react';
-
-const Events = () => {
-  return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto', padding: '1.5rem', backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-      <h1> Upcoming Events</h1>
-      <p>Here, users can register for upcoming events related to mentorship and student activities.</p>
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     </div>
   );
 };
 
-<<<<<<< HEAD
+
 // Define styles object
 const styles = {
   container: {
@@ -277,6 +268,5 @@ const styles = {
   }
 };
 
-=======
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
 export default Events;
+

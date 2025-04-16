@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { firestore } from "../firebase";
-<<<<<<< HEAD
+
 import { 
   collection, 
   getDocs, 
@@ -122,37 +122,6 @@ const AdminDashboard = () => {
 
         await fetchResources();
         
-=======
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
-
-const AdminDashboard = () => {
-  const [signups, setSignups] = useState([]);
-  const [mentorshipMatches, setMentorshipMatches] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch all mentorship signups
-        const signupsRef = collection(firestore, "mentorship_signups");
-        const signupsSnap = await getDocs(signupsRef);
-        const signupsData = signupsSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setSignups(signupsData);
-
-        // Fetch AI-generated mentorship matches
-        const matchesRef = collection(firestore, "mentorship_matches");
-        const matchesSnap = await getDocs(matchesRef);
-        const matchesData = matchesSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        setMentorshipMatches(matchesData);
-
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
         setLoading(false);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -160,7 +129,7 @@ const AdminDashboard = () => {
       }
     };
 
-<<<<<<< HEAD
+
     fetchAllData();
   }, []);
 
@@ -331,28 +300,11 @@ const AdminDashboard = () => {
     } catch (error) {
       console.error("Error generating matches:", error);
       alert(`Error generating matches: ${error.message}`);
-=======
-    fetchData();
-  }, []);
-
-  const generateMatches = async () => {
-    setGenerating(true);
-    try {
-      const response = await fetch("http://127.0.0.1:5000/generate-matches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-      });
-
-      const result = await response.json();
-      alert(result.message);
-    } catch (error) {
-      console.error("Error generating matches:", error);
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     }
     setGenerating(false);
   };
 
-<<<<<<< HEAD
+
   const createManualMatch = async () => {
     if (!selectedMentee || !selectedMentor) {
       alert("Please select both a mentee and a mentor.");
@@ -2272,76 +2224,11 @@ const AdminDashboard = () => {
           </div>
         </div>
       )}
-=======
-  const overrideMatch = async (userId) => {
-    const newMatch = prompt(`Enter a new mentor/mentee match for user ${userId}:`);
-    if (!newMatch) return;
-
-    try {
-      await updateDoc(doc(firestore, "mentorship_matches", userId), { matchResult: newMatch });
-      alert("Mentorship match updated successfully!");
-      setMentorshipMatches((prevMatches) =>
-        prevMatches.map((match) =>
-          match.id === userId ? { ...match, matchResult: newMatch } : match
-        )
-      );
-    } catch (error) {
-      console.error("Error updating match:", error);
-    }
-  };
-
-  if (loading) return <p>Loading...</p>;
-
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>📊 Mentorship Admin Dashboard</h1>
-
-      {/* Generate Matches Button */}
-      <button onClick={generateMatches} style={styles.generateButton} disabled={generating}>
-        {generating ? "Generating Matches..." : "Generate AI Matches"}
-      </button>
-
-      {/* Section: Mentorship Signups */}
-      <h2 style={styles.sectionTitle}>📋 Mentorship Signups</h2>
-      <div style={styles.list}>
-        {signups.length > 0 ? (
-          signups.map((signup) => (
-            <div key={signup.id} style={styles.card}>
-              <h3>{signup.name || "Unknown User"}</h3>
-              <p><strong>Email:</strong> {signup.email || "No Email"}</p>
-              <p><strong>Role:</strong> {signup.mentorshipRole ? signup.mentorshipRole.toUpperCase() : "Not Provided"}</p>
-              <p><strong>Major:</strong> {signup.major || "Not Provided"}</p>
-              <p><strong>Expectations:</strong> {signup.expectations || "No expectations provided"}</p>
-              <p><strong>Areas of Interest:</strong> {Array.isArray(signup.mentorshipAreas) ? signup.mentorshipAreas.join(", ") : "No areas specified"}</p>
-            </div>
-          ))
-        ) : (
-          <p>No mentorship signups yet.</p>
-        )}
-      </div>
-
-      {/* Section: AI-Generated Mentorship Matches */}
-      <h2 style={styles.sectionTitle}>🤖 AI-Generated Mentorship Matches</h2>
-      <div style={styles.list}>
-        {mentorshipMatches.length > 0 ? (
-          mentorshipMatches.map((match) => (
-            <div key={match.id} style={styles.card}>
-              <h3><strong>Mentee:</strong> {match.mentee}</h3>
-              <p><strong>Mentor:</strong> {match.mentor}</p>
-              <p><strong>Match Details:</strong> {match.matchResult || "No details available"}</p>
-              <button onClick={() => overrideMatch(match.id)} style={styles.overrideButton}>Override Match</button>
-            </div>
-          ))
-        ) : (
-          <p>No AI-generated mentorship matches yet.</p>
-        )}
-      </div>
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     </div>
   );
 };
 
-<<<<<<< HEAD
+
 // Combined styles including additional styles for user details modal
 const styles = {
   // Main container and layout
@@ -3237,24 +3124,4 @@ const styles = {
 };
 
 export default AdminDashboard;
-=======
-/** 🔹 Styles */
-const styles = {
-  container: { maxWidth: "900px", margin: "2rem auto", padding: "2rem", textAlign: "center" },
-  title: { fontSize: "1.8rem", color: "#1a365d", marginBottom: "1rem" },
-  generateButton: {
-    backgroundColor: "#FED102", color: "#1a365d", padding: "10px", borderRadius: "6px", fontSize: "1rem",
-    fontWeight: "bold", cursor: "pointer", marginBottom: "1rem", border: "none"
-  },
-  sectionTitle: { fontSize: "1.5rem", margin: "1rem 0", color: "#1a365d" },
-  list: { display: "flex", flexDirection: "column", gap: "10px" },
-  card: { padding: "15px", borderRadius: "6px", backgroundColor: "white", boxShadow: "0 2px 4px rgba(0,0,0,0.1)", textAlign: "left" },
-  overrideButton: {
-    marginTop: "10px", padding: "8px", backgroundColor: "#e63946", color: "white", border: "none",
-    borderRadius: "6px", cursor: "pointer"
-  }
-};
 
-export default AdminDashboard;
-
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17

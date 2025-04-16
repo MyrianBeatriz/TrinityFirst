@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-<<<<<<< HEAD
+
 import { useNavigate, Link } from "react-router-dom";
 import { auth, firestore } from "../firebase";
 import { 
@@ -961,75 +961,12 @@ const MenteeDashboard = () => {
             </div>
           </div>
         </div>
-=======
-import { useNavigate } from "react-router-dom";
-import { auth, firestore } from "../firebase";
-
-const Dashboard = () => {
-  const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [mentorshipStatus, setMentorshipStatus] = useState("closed");
-  const [isMentorshipEnrolled, setIsMentorshipEnrolled] = useState(false);
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      setUser(currentUser);
-
-      const mentorshipRef = firestore.collection("mentorship").doc("programId");
-      const mentorshipSnap = await mentorshipRef.get();
-      if (mentorshipSnap.exists) {
-        setMentorshipStatus(mentorshipSnap.data().status);
-      }
-
-      const userMentorshipRef = firestore.collection("mentorship_signups").doc(currentUser.uid);
-      const userMentorshipSnap = await userMentorshipRef.get();
-      if (userMentorshipSnap.exists) {
-        setIsMentorshipEnrolled(true);
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  return (
-    <div style={{ maxWidth: "800px", margin: "2rem auto", padding: "2rem", backgroundColor: "white", borderRadius: "12px", boxShadow: "0 2px 4px rgba(0,0,0,0.1)" }}>
-      <h1>Welcome to Your Dashboard</h1>
-
-      {/* Show mentorship banner if the program is open */}
-      {mentorshipStatus === "open" && !isMentorshipEnrolled && (
-        <div style={{ backgroundColor: "#FED102", padding: "10px", borderRadius: "5px", textAlign: "center", marginBottom: "20px" }}>
-          <p> The mentorship program is now open! Sign up to become a mentor or mentee.</p>
-          <button onClick={() => navigate("/mentorship-signup")} style={{ padding: "8px", borderRadius: "5px", backgroundColor: "#1a365d", color: "white", border: "none" }}>
-            Sign Up for Mentorship
-          </button>
-        </div>
-      )}
-
-      {/* Show "Manage My Mentorship" if user is enrolled */}
-      {mentorshipStatus === "open" && isMentorshipEnrolled && (
-        <button onClick={() => navigate("/mentorship-settings")} style={{ padding: "8px", borderRadius: "5px", backgroundColor: "#1a365d", color: "white", border: "none", marginTop: "10px" }}>
-          Manage My Mentorship
-        </button>
-      )}
-
-      {/* Show additional content when mentorship is not open */}
-      {mentorshipStatus === "closed" && (
-        <>
-          <CountdownTimer />
-          <SuccessStories />
-          <UpcomingEvents />
-          <CourseRecommendations major="Computer Science" />
-          <MentorshipPrep />
-        </>
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
       )}
     </div>
   );
 };
 
-<<<<<<< HEAD
+
 const styles = {
   container: {
     maxWidth: "1200px",
@@ -1700,57 +1637,4 @@ const styles = {
 };
 
 export default MenteeDashboard;
-=======
-/** Countdown Timer Component **/
-const CountdownTimer = () => {
-  const mentorshipStartDate = new Date("2024-09-01T00:00:00");
-  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
 
-  function calculateTimeLeft() {
-    const difference = mentorshipStartDate - new Date();
-    if (difference <= 0) return null;
-    return {
-      days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-      hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-      minutes: Math.floor((difference / (1000 * 60)) % 60),
-      seconds: Math.floor((difference / 1000) % 60),
-    };
-  }
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  if (!timeLeft) return <p>Mentorship program starts soon! Stay tuned.</p>;
-
-  return (
-    <div>
-      <h4>Mentorship Program Starts In:</h4>
-      <p>{timeLeft.days}d {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s</p>
-    </div>
-  );
-};
-
-/** Other Components (Success Stories, Events, Courses, etc.) **/
-const SuccessStories = () => {
-  return <h4>Success Stories</h4>;
-};
-
-const UpcomingEvents = () => {
-  return <h4>Upcoming Events</h4>;
-};
-
-const CourseRecommendations = ({ major }) => {
-  return <h4>Recommended Courses for {major}</h4>;
-};
-
-const MentorshipPrep = () => {
-  return <h4>Get Ready for Mentorship</h4>;
-};
-
-export default Dashboard;
-
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17

@@ -1,27 +1,21 @@
 import React, { useState, useEffect } from "react";
-<<<<<<< HEAD
+
 import { auth, firestore } from "../firebase"; // Removed storage import
 import { useNavigate } from "react-router-dom";
 import { checkExistingSignup } from "../services/api"; // Import the utility function
-=======
-import { auth, firestore, storage } from "../firebase"; // Ensure Firebase Storage is enabled
-import { useNavigate } from "react-router-dom";
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
 
 const MentorshipSignup = () => {
   const navigate = useNavigate();
   const [mentorshipRole, setMentorshipRole] = useState("");
-<<<<<<< HEAD
+
   
   // Common fields for both roles
-=======
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
   const [expectations, setExpectations] = useState("");
   const [careerGoals, setCareerGoals] = useState("");
   const [challenges, setChallenges] = useState("");
   const [experienceSummary, setExperienceSummary] = useState("");
   const [resumeFile, setResumeFile] = useState(null);
-<<<<<<< HEAD
+
   const [linkedinProfile, setLinkedinProfile] = useState("");
   const [major, setMajor] = useState("");
   const [additionalInfo, setAdditionalInfo] = useState("");
@@ -53,19 +47,12 @@ const MentorshipSignup = () => {
   const [loading, setLoading] = useState(true);
   const [processingContent, setProcessingContent] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState(null);
-=======
-  const [resumeUrl, setResumeUrl] = useState("");
-  const [linkedinProfile, setLinkedinProfile] = useState("");
-  const [major, setMajor] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
 
   useEffect(() => {
     const fetchUserData = async () => {
       const user = auth.currentUser;
       if (!user) return navigate("/login");
-<<<<<<< HEAD
+
   
       try {
         setLoading(true);
@@ -309,52 +296,11 @@ const MentorshipSignup = () => {
     if (!user) return navigate("/login");
 
     // Base mentorship data
-=======
-
-      const userRef = firestore.collection("users").doc(user.uid);
-      const userSnap = await userRef.get();
-
-      if (userSnap.exists) {
-        setMajor(userSnap.data().major || "");
-      }
-
-      setLoading(false);
-    };
-
-    fetchUserData();
-  }, [navigate]);
-
-  // 🔹 Handle Resume Upload to Firebase Storage
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setUploading(true);
-    const storageRef = storage.ref();
-    const fileRef = storageRef.child(`resumes/${auth.currentUser.uid}_${file.name}`);
-
-    try {
-      await fileRef.put(file);
-      const fileURL = await fileRef.getDownloadURL();
-      setResumeUrl(fileURL);
-    } catch (error) {
-      console.error("File upload failed:", error);
-    }
-    setUploading(false);
-  };
-
-  // 🔹 Handle Mentorship Signup Submission
-  const handleSignup = async (e) => {
-    e.preventDefault();
-    const user = auth.currentUser;
-    if (!user) return navigate("/login");
-
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     const mentorshipData = {
       userId: user.uid,
       mentorshipRole,
       expectations,
-<<<<<<< HEAD
+
       linkedinProfile,
       major,
       hasResume: resumeFile !== null,
@@ -400,45 +346,24 @@ const MentorshipSignup = () => {
 
       // Send data to the AI Matching API
       const response = await fetch("http://127.0.0.1:5001/match", {
-=======
-      careerGoals,
-      challenges,
-      experienceSummary,
-      resumeFile: resumeUrl,
-      linkedinProfile,
-      major,
-    };
-
-    try {
-      await firestore.collection("mentorship_signups").doc(user.uid).set(mentorshipData);
-
-      // 🔹 Send data to the AI Matching API
-      const response = await fetch("http://127.0.0.1:5000/match", {
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mentorshipData),
       });
 
       const result = await response.json();
-<<<<<<< HEAD
+
       alert("Mentorship signup successful! " + (result.matchResult || "Your application has been received."));
       navigate("/dashboard");
     } catch (error) {
       console.error("Error signing up:", error);
       alert("There was an error submitting your application. Please try again.");
-=======
-      alert("Mentorship signup successful! AI match results: " + result.matchResult);
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Error signing up:", error);
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
     }
   };
 
   if (loading) return <p>Loading...</p>;
 
-<<<<<<< HEAD
+
   // This function was removed as requested
 
   return (
@@ -487,25 +412,13 @@ const MentorshipSignup = () => {
             required 
             style={styles.input}
           >
-=======
-  return (
-    <div style={styles.container}>
-      <h1 style={styles.title}> Join the Mentorship Program</h1>
-      <p style={styles.description}>Sign up as a mentor or mentee and share your thoughts to find the best match.</p>
-
-      <form onSubmit={handleSignup} style={styles.form}>
-        {/* Mentorship Role */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Are you signing up as a mentor or mentee?</label>
-          <select value={mentorshipRole} onChange={(e) => setMentorshipRole(e.target.value)} required style={styles.input}>
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
             <option value="">Select Role</option>
             <option value="Mentee">Mentee</option>
             <option value="Mentor">Mentor</option>
           </select>
         </div>
 
-<<<<<<< HEAD
+
         {mentorshipRole && !hasExistingSignup && (
           <>
             {/* AI Content Sources Section */}
@@ -786,48 +699,6 @@ const MentorshipSignup = () => {
             <button type="submit" style={styles.button}>Sign Up Now</button>
           </>
         )}
-=======
-        {/* Expectations */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>What are your expectations from this mentorship?</label>
-          <textarea value={expectations} onChange={(e) => setExpectations(e.target.value)} placeholder="Write freely about what you're hoping to gain." style={styles.textarea} />
-        </div>
-
-        {/* Career Goals */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>What are your short-term and long-term career goals?</label>
-          <textarea value={careerGoals} onChange={(e) => setCareerGoals(e.target.value)} placeholder="Describe your aspirations and career vision." style={styles.textarea} />
-        </div>
-
-        {/* Challenges */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>What challenges have you faced in your academic or career journey?</label>
-          <textarea value={challenges} onChange={(e) => setChallenges(e.target.value)} placeholder="Be open about any struggles you’ve encountered." style={styles.textarea} />
-        </div>
-
-        {/* Experience Summary */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Describe your academic and professional experience so far.</label>
-          <textarea value={experienceSummary} onChange={(e) => setExperienceSummary(e.target.value)} placeholder="Give an overview of your experiences, internships, or projects." style={styles.textarea} />
-        </div>
-
-        {/* LinkedIn Profile */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Do you have a LinkedIn profile? Share the link.</label>
-          <input type="url" value={linkedinProfile} onChange={(e) => setLinkedinProfile(e.target.value)} placeholder="https://linkedin.com/in/your-profile" style={styles.input} />
-        </div>
-
-        {/* Resume Upload */}
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Upload Your Resume (Optional but Recommended)</label>
-          <input type="file" accept=".pdf,.docx,.txt" onChange={handleFileUpload} />
-          {uploading && <p>Uploading...</p>}
-          {resumeUrl && <p>Resume Uploaded Successfully!</p>}
-        </div>
-
-        {/* Submit Button */}
-        <button type="submit" style={styles.button}> Sign Up Now</button>
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
       </form>
     </div>
   );
@@ -840,7 +711,7 @@ const styles = {
   description: { fontSize: "1rem", color: "#555", marginBottom: "1.5rem" },
   form: { display: "flex", flexDirection: "column", gap: "1.5rem" },
   formGroup: { textAlign: "left" },
-<<<<<<< HEAD
+
   labelContainer: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" },
   label: { fontSize: "1rem", fontWeight: "600", color: "#1a365d" },
   input: { width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e0", fontSize: "1rem", backgroundColor: "white" },
@@ -935,13 +806,4 @@ const styles = {
 };
 
 export default MentorshipSignup;
-=======
-  label: { fontSize: "1rem", fontWeight: "600", color: "#1a365d", display: "block", marginBottom: "0.5rem" },
-  input: { width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e0", fontSize: "1rem", backgroundColor: "white" },
-  textarea: { width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e0", fontSize: "1rem", backgroundColor: "white", minHeight: "100px" },
-  button: { backgroundColor: "#1a365d", color: "white", padding: "12px", border: "none", borderRadius: "6px", fontSize: "1rem", cursor: "pointer", transition: "background-color 0.3s" },
-};
 
-export default MentorshipSignup;
-
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
