@@ -1,6 +1,6 @@
 # Author: Myri B. Ayala
 # Flask API that provides endpoints for mentorship program application. It uses Google's Gemini 1.5 Pro for AI generated content and matching
-# Last updated: March 26th, 2025
+# Last updated: April 16th, 2025
 
 import os
 import firebase_admin
