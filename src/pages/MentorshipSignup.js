@@ -112,18 +112,38 @@ const MentorshipSignup = () => {
     setProcessingContent(true);
     
     try {
+      // Validate file type before processing
+      const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(`Invalid file type. Allowed types: PDF, DOCX, DOC, TXT`);
+      }
+      
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024;
+      if (file.size > maxSize) {
+        throw new Error(`File too large. Maximum size: 5MB`);
+      }
+
       // Create a FormData object to send the file directly
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('userId', auth.currentUser?.uid || 'anonymous');
+      
+      // Sanitize userId before sending
+      const userId = auth.currentUser?.uid || 'anonymous';
+      if (userId !== 'anonymous' && !/^[a-zA-Z0-9_-]+$/.test(userId)) {
+        throw new Error('Invalid user ID format');
+      }
+      formData.append('userId', userId);
       formData.append('role', mentorshipRole);
       
       console.log("Sending file for AI processing...");
       
-      // Send the file directly to your server
-      const response = await fetch("http://127.0.0.1:5001/process-file", {
+      // Use API_URL from environment variables
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
+      const response = await fetch(`${apiUrl}/process-file`, {
         method: "POST",
-        body: formData, // No need to set Content-Type, it will be set automatically with boundary
+        body: formData,
+        credentials: 'same-origin' // For cookies if using session-based auth
       });
 
       if (!response.ok) {
@@ -132,8 +152,13 @@ const MentorshipSignup = () => {
       }
 
       const result = await response.json();
-      console.log("AI generated content:", result);
       
+      // Validate the response structure
+      if (!result || typeof result !== 'object') {
+        throw new Error('Invalid response format from server');
+      }
+      
+      console.log("AI generated content received");
       setAiSuggestions(result);
       
       // Ask user if they want to use the suggestions
@@ -234,54 +259,54 @@ const MentorshipSignup = () => {
     }
   };
 
-  // Apply individual AI suggestion
-  const applyAiSuggestion = (field) => {
-    if (!aiSuggestions || !aiSuggestions[field]) return;
-    
-    // Use a switch statement to handle all possible fields
-    switch(field) {
-      // Common fields
-      case 'expectations':
-        setExpectations(aiSuggestions.expectations);
-        break;
-      case 'additionalInfo':
-        setAdditionalInfo(aiSuggestions.additionalInfo);
-        break;
-      
-      // Mentee fields  
-      case 'careerGoals':
-        setCareerGoals(aiSuggestions.careerGoals);
-        break;
-      case 'experienceSummary':
-        setExperienceSummary(aiSuggestions.experienceSummary);
-        break;
-      case 'challenges':
-        setChallenges(aiSuggestions.challenges);
-        break;
-      
-      // Mentor fields
-      case 'academicInterests':
-        setAcademicInterests(aiSuggestions.academicInterests);
-        break;
-      case 'extracurriculars':
-        setExtracurriculars(aiSuggestions.extracurriculars);
-        break;
-      case 'mentorMotivation':
-        setMentorMotivation(aiSuggestions.mentorMotivation);
-        break;
-      case 'firstGenChallenges':
-        setFirstGenChallenges(aiSuggestions.firstGenChallenges);
-        break;
-      case 'mentorStrengths':
-        setMentorStrengths(aiSuggestions.mentorStrengths);
-        break;
-      case 'communicationStyle':
-        setCommunicationStyle(aiSuggestions.communicationStyle);
-        break;
-      default:
-        break;
-    }
-  };
+  // Apply individual AI suggestion - Not currently used but kept for future implementation
+  // const applyAiSuggestion = (field) => {
+  //   if (!aiSuggestions || !aiSuggestions[field]) return;
+  //   
+  //   // Use a switch statement to handle all possible fields
+  //   switch(field) {
+  //     // Common fields
+  //     case 'expectations':
+  //       setExpectations(aiSuggestions.expectations);
+  //       break;
+  //     case 'additionalInfo':
+  //       setAdditionalInfo(aiSuggestions.additionalInfo);
+  //       break;
+  //     
+  //     // Mentee fields  
+  //     case 'careerGoals':
+  //       setCareerGoals(aiSuggestions.careerGoals);
+  //       break;
+  //     case 'experienceSummary':
+  //       setExperienceSummary(aiSuggestions.experienceSummary);
+  //       break;
+  //     case 'challenges':
+  //       setChallenges(aiSuggestions.challenges);
+  //       break;
+  //     
+  //     // Mentor fields
+  //     case 'academicInterests':
+  //       setAcademicInterests(aiSuggestions.academicInterests);
+  //       break;
+  //     case 'extracurriculars':
+  //       setExtracurriculars(aiSuggestions.extracurriculars);
+  //       break;
+  //     case 'mentorMotivation':
+  //       setMentorMotivation(aiSuggestions.mentorMotivation);
+  //       break;
+  //     case 'firstGenChallenges':
+  //       setFirstGenChallenges(aiSuggestions.firstGenChallenges);
+  //       break;
+  //     case 'mentorStrengths':
+  //       setMentorStrengths(aiSuggestions.mentorStrengths);
+  //       break;
+  //     case 'communicationStyle':
+  //       setCommunicationStyle(aiSuggestions.communicationStyle);
+  //       break;
+  //     default:
+  //       break;
+  //   }
+  // };
 
   // Handle form submission
   const handleSignup = async (e) => {
@@ -344,10 +369,25 @@ const MentorshipSignup = () => {
         });
       }
 
+      // Get CSRF token if needed (could be implemented server-side)
+      const csrfToken = localStorage.getItem('csrfToken');
+      
+      // Add CSRF token to request data if available
+      if (csrfToken) {
+        mentorshipData.csrfToken = csrfToken;
+      }
+      
+      // Use API URL from environment variables
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
+      
       // Send data to the AI Matching API
-      const response = await fetch("http://127.0.0.1:5001/match", {
+      const response = await fetch(`${apiUrl}/match`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest" // Helps prevent CSRF
+        },
+        credentials: 'same-origin', // For cookies if using session-based auth
         body: JSON.stringify(mentorshipData),
       });
 

@@ -136,8 +136,8 @@ const AdminDashboard = () => {
   // Fetch mentorship settings
   const fetchMentorshipSettings = async () => {
     try {
-      const settingsRef = doc(firestore, "settings", "mentorship");
-      const settingsSnap = await getDoc(settingsRef);
+      const settingsRef = firestore.collection("settings").doc("mentorship");
+      const settingsSnap = await settingsRef.get();
       
       if (settingsSnap.exists()) {
         const settingsData = settingsSnap.data();
@@ -732,6 +732,7 @@ const AdminDashboard = () => {
 
   const fetchResources = async () => {
     try {
+      console.log("Fetching resources...");
       const resourcesRef = collection(firestore, "resources");
       const resourcesQuery = query(resourcesRef, orderBy("publishDate", "desc"));
       const resourcesSnap = await getDocs(resourcesQuery);
@@ -742,7 +743,7 @@ const AdminDashboard = () => {
       }));
       
       setResources(resourcesData);
-      console.log("Resources fetched successfully:", resourcesData);
+      console.log("Resources fetched successfully:", resourcesData.length);
     } catch (error) {
       console.error("Error fetching resources:", error);
     }
@@ -789,25 +790,40 @@ const AdminDashboard = () => {
     setUploadingResource(true);
     
     try {
-      const resourceData = {
-        ...resourceFormData,
+      // Validate and sanitize data
+      const sanitizedData = {
+        title: resourceFormData.title.trim(),
+        description: resourceFormData.description.trim(),
+        category: resourceFormData.category,
+        createdBy: resourceFormData.createdBy ? resourceFormData.createdBy.trim() : "",
+        featured: Boolean(resourceFormData.featured),
+        publishDate: resourceFormData.publishDate,
+        link: resourceFormData.link ? resourceFormData.link.trim() : "",
         lastUpdated: new Date().toISOString()
       };
       
-      let fileUrl = "";
+      // Remove any undefined values that could cause issues
+      Object.keys(sanitizedData).forEach(key => {
+        if (sanitizedData[key] === undefined) {
+          delete sanitizedData[key];
+        }
+      });
       
+      console.log("Sanitized resource data:", sanitizedData);
       
       if (selectedResource) {
         // Update existing resource
-        console.log("Updating resource:", selectedResource.id, resourceData);
+        console.log("Updating resource:", selectedResource.id);
         const resourceRef = doc(firestore, "resources", selectedResource.id);
-        await updateDoc(resourceRef, resourceData);
+        await updateDoc(resourceRef, sanitizedData);
+        console.log("Resource updated successfully");
         alert("Resource updated successfully!");
       } else {
         // Create new resource
-        console.log("Creating new resource:", resourceData);
+        console.log("Creating new resource");
         const resourcesRef = collection(firestore, "resources");
-        await addDoc(resourcesRef, resourceData);
+        await addDoc(resourcesRef, sanitizedData);
+        console.log("Resource created successfully");
         alert("Resource created successfully!");
       }
       
@@ -815,7 +831,7 @@ const AdminDashboard = () => {
       await fetchResources();
     } catch (error) {
       console.error("Error saving resource:", error);
-      alert("Error saving resource. Please try again.");
+      alert("Error saving resource: " + error.message);
     } finally {
       setUploadingResource(false);
     }
@@ -826,8 +842,6 @@ const AdminDashboard = () => {
       try {
         console.log("Deleting resource:", resourceId);
         const resourceRef = doc(firestore, "resources", resourceId);
-        
-        // Delete the resource document
         await deleteDoc(resourceRef);
         alert("Resource deleted successfully!");
         
@@ -838,7 +852,7 @@ const AdminDashboard = () => {
         await fetchResources();
       } catch (error) {
         console.error("Error deleting resource:", error);
-        alert("Error deleting resource. Please try again.");
+        alert("Error deleting resource: " + error.message);
       }
     }
   };
@@ -866,7 +880,7 @@ const AdminDashboard = () => {
       alert(`Resource ${!resource.featured ? "featured" : "unfeatured"} successfully!`);
     } catch (error) {
       console.error("Error toggling resource feature status:", error);
-      alert("Error updating resource. Please try again.");
+      alert("Error updating resource: " + error.message);
     }
   };
 

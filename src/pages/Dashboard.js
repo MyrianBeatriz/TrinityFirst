@@ -40,7 +40,6 @@ const MenteeDashboard = () => {
     completed: false
   });
   useEffect(() => {
-
     const fetchDashboardData = async () => {
       try {
         const user = auth.currentUser;
@@ -48,8 +47,6 @@ const MenteeDashboard = () => {
           navigate("/login");
           return;
         }
-
-        // Fetch all user
 
         // Fetch user data
         const userRef = doc(firestore, "users", user.uid);
@@ -61,12 +58,14 @@ const MenteeDashboard = () => {
           console.error("No user data found");
         }
         
+        // Check if user has submitted application
         const signupRef = doc(firestore, "mentorship_signups", user.uid);
         const signupSnap = await getDoc(signupRef);
       
-      if (signupSnap.exists()) {
-        setHasSubmittedApplication(true);
-      }
+        if (signupSnap.exists()) {
+          setHasSubmittedApplication(true);
+        }
+        
         // Check if mentorship signups are enabled
         try {
           const mentorshipRef = doc(firestore, "mentorship", "programId");
@@ -84,29 +83,163 @@ const MenteeDashboard = () => {
           setMentorshipSignupsEnabled(false);
         }
 
-        // Fetch mentorship match
-        const matchesRef = collection(firestore, "mentorship_matches");
-        const matchQuery = query(
-          matchesRef,
-          where("menteeId", "==", user.uid),
-          where("status", "==", "confirmed")
-        );
-        
-        const matchSnap = await getDocs(matchQuery);
-        
-        if (!matchSnap.empty) {
-          const matchData = matchSnap.docs[0].data();
-          setMentorMatch(matchData);
+        // FIRST TRY API ENDPOINT (preferred method)
+        try {
+          const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
+          const response = await fetch(`${apiUrl}/get-user-matches`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Requested-With": "XMLHttpRequest"
+            },
+            body: JSON.stringify({ userId: user.uid }),
+            credentials: "same-origin"
+          });
           
-          // Fetch mentor data
-          const mentorRef = doc(firestore, "users", matchData.mentorId);
-          const mentorSnap = await getDoc(mentorRef);
-          
-          if (mentorSnap.exists()) {
-            setMentor(mentorSnap.data());
+          if (response.ok) {
+            const data = await response.json();
+            console.log("API returned matches:", data);
+            
+            // Process mentee matches
+            if (data.menteeMatches && data.menteeMatches.length > 0) {
+              // Sort by status priority
+              const statusPriority = {
+                "confirmed": 1,
+                "approved": 2,
+                "pending": 3,
+                "rejected": 4
+              };
+              
+              const menteeMatches = [...data.menteeMatches];
+              menteeMatches.sort((a, b) => 
+                (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+              );
+              
+              // Use the highest priority match
+              const matchData = menteeMatches[0];
+              setMentorMatch(matchData);
+              
+              // Fetch mentor data for this match
+              if (matchData.mentorId) {
+                const mentorRef = doc(firestore, "users", matchData.mentorId);
+                const mentorSnap = await getDoc(mentorRef);
+                
+                if (mentorSnap.exists()) {
+                  setMentor({
+                    id: matchData.mentorId,
+                    ...mentorSnap.data()
+                  });
+                }
+              }
+            }
+            
+            // Now we have both mentor and mentee matches available if needed
+            return; // Skip the Firestore query below if API call was successful
           }
+        } catch (error) {
+          console.error("Error using API to fetch matches:", error);
+          // Continue with direct Firestore query as fallback
         }
 
+        // FALLBACK: Use Firestore directly if the API fails
+        console.log("Falling back to direct Firestore query for matches");
+        const matchesRef = collection(firestore, "mentorship_matches");
+        
+        // Get matches where user is a mentee (any status)
+        const menteeMatchesQuery = query(
+          matchesRef,
+          where("menteeId", "==", user.uid)
+        );
+        
+        const menteeMatchesSnap = await getDocs(menteeMatchesQuery);
+        if (!menteeMatchesSnap.empty) {
+          // Find the most relevant match to display based on status priority
+          // Priority: confirmed > approved > pending > rejected
+          const matches = menteeMatchesSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          
+          // Sort by status priority
+          const statusPriority = {
+            "confirmed": 1,
+            "approved": 2,
+            "pending": 3,
+            "rejected": 4
+          };
+          
+          matches.sort((a, b) => 
+            (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99)
+          );
+          
+          // Use the highest priority match
+          const matchData = matches[0];
+          if (!matchData.id) {
+            matchData.id = menteeMatchesSnap.docs[0].id; // Ensure ID is included
+          }
+          setMentorMatch(matchData);
+          
+          // Fetch mentor data for this match
+          if (matchData.mentorId) {
+            const mentorRef = doc(firestore, "users", matchData.mentorId);
+            const mentorSnap = await getDoc(mentorRef);
+            
+            if (mentorSnap.exists()) {
+              setMentor({
+                id: matchData.mentorId,
+                ...mentorSnap.data()
+              });
+            }
+          }
+        }
+        
+        // Also get matches where user is a mentor
+        const mentorMatchesQuery = query(
+          matchesRef,
+          where("mentorId", "==", user.uid)
+        );
+        
+        const mentorMatchesSnap = await getDocs(mentorMatchesQuery);
+        if (!mentorMatchesSnap.empty) {
+          console.log("User is also a mentor for", mentorMatchesSnap.docs.length, "mentees");
+          // Could do something with mentor matches if needed
+        }
+
+        // Debug information about matches
+        if (mentorMatch) {
+          console.log("Active mentorship match:", {
+            id: mentorMatch.id || "No ID",
+            status: mentorMatch.status || "No status",
+            mentorId: mentorMatch.mentorId || "No mentor ID",
+            menteeId: mentorMatch.menteeId || "No mentee ID",
+            createdAt: mentorMatch.createdAt || "No creation date",
+            hasId: !!mentorMatch.id,
+            reason: mentorMatch.matchReason || mentorMatch.reason || "No reason provided",
+            score: mentorMatch.compatibilityScore || mentorMatch.score || "No score available"
+          });
+          
+          // Set an attribute to help with debugging
+          window.latestMentorMatch = {
+            ...mentorMatch,
+            retrievedAt: new Date().toISOString()
+          };
+          
+          // Verify that the match has all required fields
+          const requiredFields = ["id", "mentorId", "menteeId", "status"];
+          const missingFields = requiredFields.filter(field => !mentorMatch[field]);
+          
+          if (missingFields.length > 0) {
+            console.warn(`⚠️ Match is missing required fields: ${missingFields.join(", ")}`);
+          }
+        } else {
+          console.log("No active mentorship match found");
+          
+          // Clear the window attribute if no match is found
+          if (window.latestMentorMatch) {
+            window.latestMentorMatch = null;
+          }
+        }
+        
         // Fetch upcoming events
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -128,15 +261,14 @@ const MenteeDashboard = () => {
         
         setUpcomingEvents(eventsData);
     
-        // Fetch success stories
-        const storiesRef = collection(firestore, "success_stories");
-        const storiesQuery = query(
-          storiesRef,
-          orderBy("createdAt", "desc"),
-          limit(2)
-        );
-        
-        const storiesSnap = await getDocs(storiesQuery);
+        // Fetch success stories - Commented out until stories functionality is implemented
+        // const storiesRef = collection(firestore, "success_stories");
+        // const storiesQuery = query(
+        //   storiesRef,
+        //   orderBy("createdAt", "desc"),
+        //   limit(2)
+        // );
+        // const storiesSnap = await getDocs(storiesQuery);
         
 
         // Fetch goals from Firebase
@@ -163,7 +295,7 @@ const MenteeDashboard = () => {
     };
 
     fetchDashboardData();
-  }, [navigate]);
+  }, [navigate, mentorMatch]);
   // Format date for display
   const formatDate = (dateString) => {
     if (!dateString) return "";
@@ -256,13 +388,47 @@ const MenteeDashboard = () => {
     }
   };
   const confirmMatch = async () => {
-    if (!mentorMatch || !mentorMatch.id) return;
+    if (!mentorMatch || !mentorMatch.id) {
+      console.error("No match ID available");
+      return;
+    }
     
     try {
+      // Get current user ID
+      const user = auth.currentUser;
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+      
+      // Use the API service to update the match status
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
+      const response = await fetch(`${apiUrl}/update-match-status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({
+          matchId: mentorMatch.id,
+          status: "confirmed",
+          userId: user.uid,
+          timestamp: new Date().toISOString()
+        }),
+        credentials: "same-origin"
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Server error");
+      }
+      
+      // Also update Firestore directly as a fallback
       const matchRef = doc(firestore, "mentorship_matches", mentorMatch.id);
       await updateDoc(matchRef, {
         status: "confirmed",
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        updatedBy: user.uid
       });
       
       // Update local state
@@ -279,13 +445,51 @@ const MenteeDashboard = () => {
   };
   
   const rejectMatch = async () => {
-    if (!mentorMatch || !mentorMatch.id) return;
+    if (!mentorMatch || !mentorMatch.id) {
+      console.error("No match ID available");
+      return;
+    }
+    
+    if (!window.confirm("Are you sure you want to reject this mentorship match?")) {
+      return;
+    }
     
     try {
+      // Get current user ID
+      const user = auth.currentUser;
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+      
+      // Use the API service to update the match status
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
+      const response = await fetch(`${apiUrl}/update-match-status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({
+          matchId: mentorMatch.id,
+          status: "rejected",
+          userId: user.uid,
+          timestamp: new Date().toISOString()
+        }),
+        credentials: "same-origin"
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Server error");
+      }
+      
+      // Also update Firestore directly as a fallback
       const matchRef = doc(firestore, "mentorship_matches", mentorMatch.id);
       await updateDoc(matchRef, {
         status: "rejected",
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        updatedBy: user.uid
       });
       
       // Update local state
@@ -297,7 +501,7 @@ const MenteeDashboard = () => {
       // Clear mentor data
       setMentor(null);
       
-      alert("You've rejected this mentorship match. You can sign up again for a new match.");
+      alert("You've rejected this mentorship match. You can sign up again for a new match if you wish.");
     } catch (error) {
       console.error("Error rejecting match:", error);
       alert("Error rejecting match. Please try again.");

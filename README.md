@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Trinity FIRST - Student Mentorship Platform
 
 A web application designed to connect and support first-generation college students through mentorship, resources, and community building.
@@ -6,11 +5,12 @@ A web application designed to connect and support first-generation college stude
 ## Features
 
 - User authentication and profiles
-- Mentorship matching program
+- AI-powered mentorship matching program
 - Resource hub for first-generation students
 - Event calendar and notifications
 - Community forum/stories section
 - Admin dashboard for program management
+- Mentor/mentee dashboards with match tracking
 
 ## Technology Stack
 
@@ -20,6 +20,45 @@ A web application designed to connect and support first-generation college stude
 - **Storage**: Firebase Storage
 - **Authentication**: Firebase Auth
 - **AI**: Google Gemini 1.5 Pro for mentorship matching
+
+## Security Improvements
+
+The following security improvements have been implemented to address potential vulnerabilities:
+
+### Frontend Security
+
+1. **Environment Variables**
+   - Removed hardcoded Firebase credentials from `firebase.js`
+   - Added centralized API URL configuration in `.env.example`
+
+2. **Input Validation**
+   - Added client-side validation for file uploads (type, size)
+   - Added sanitization for user IDs and other inputs
+   - Added response validation to prevent XSS
+
+3. **User Authentication**
+   - Enhanced user profile creation with data sanitization
+   - Added security logging for user actions 
+   - Implemented safer data handling practices
+
+### Backend Security
+
+1. **API Protection**
+   - Added rate limiting to prevent abuse
+   - Implemented CSRF protection
+   - Added request validation and sanitization
+   - Enhanced error logging and handling
+
+2. **File Handling**
+   - Added support for file encryption
+   - Improved file upload validation
+   - Implemented secure file storage practices
+   - Added path traversal protection
+
+3. **AI Integration**
+   - Added validation for AI-generated content
+   - Implemented HTML/script tag sanitization
+   - Added input and output validation for AI requests
 
 ## Setup Instructions
 
@@ -43,12 +82,20 @@ A web application designed to connect and support first-generation college stude
    REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
    REACT_APP_FIREBASE_APP_ID=your-app-id
    REACT_APP_FIREBASE_MEASUREMENT_ID=your-measurement-id
+   REACT_APP_API_URL=http://localhost:5001
 
    # Backend Configuration
    GEMINI_API_KEY=your-gemini-api-key
    FIREBASE_CREDENTIALS_PATH=path/to/firebase-credentials.json
-   GEMINI_MODEL=gemini-1.5-pro-latest
+   GEMINI_MODEL=gemini-2.5-experimental
    ALLOWED_ORIGINS=http://localhost:3000,https://your-app.com
+
+   # Security Configuration
+   ENABLE_CSRF_PROTECTION=true
+   ENABLE_RATE_LIMITING=true
+   ENABLE_FILE_ENCRYPTION=false
+   SESSION_SECRET=your-secure-session-secret
+   FILE_ENCRYPTION_KEY=your-file-encryption-key
    ```
 
 3. Install frontend dependencies:
@@ -84,6 +131,9 @@ A web application designed to connect and support first-generation college stude
 - Validate all user inputs on both client and server sides
 - Implement proper CORS restrictions in production
 - Set up Firebase security rules to restrict data access
+- Regularly update dependencies to patch security vulnerabilities
+- Enable file encryption in production environments
+- Implement CSRF protection for all state-changing operations
 
 ## Contributing
 
@@ -94,10 +144,8 @@ Please follow these guidelines when contributing to the codebase:
 3. Validate all user inputs
 4. Document new API endpoints
 5. Write tests for critical functionality
+6. Follow security best practices
 
 ## License
 
 [MIT License](LICENSE)
-=======
-# TrinityFirst
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17

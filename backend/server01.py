@@ -11,9 +11,16 @@ import json
 import re
 import tempfile
 import datetime
+import logging
+import uuid
 from werkzeug.utils import secure_filename
 from flask_cors import CORS
 from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, 
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -39,7 +46,7 @@ else:
 # Get Firebase credentials path from environment variable with fallback
 FIREBASE_CREDENTIALS_PATH = os.environ.get(
     "FIREBASE_CREDENTIALS_PATH", 
-    os.path.join(os.path.dirname(__file__), "trinity-first-13999-firebase-adminsdk-qrrx7-e8145d3afb.json")
+    os.path.join(os.path.dirname(__file__), "trinity-first-13999-firebase-adminsdk-qrrx7-c432d03c58.json")
 )
 
 # Make sure the credentials file exists, otherwise use mock mode
@@ -75,7 +82,7 @@ if USE_AI:
     try:
         genai.configure(api_key=GEMINI_API_KEY)
         # Use a single model throughout the application
-        GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-1.5-pro-latest")
+        GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-experimental")
         print(f"Successfully configured Gemini API with model: {GEMINI_MODEL}")
     except Exception as e:
         print(f"Error configuring Gemini API: {str(e)}")
@@ -592,27 +599,42 @@ def get_error_response_endpoint():
     
     return jsonify(content)
 
+# Create a dummy limiter that doesn't do anything if not defined globally
+if 'limiter' not in globals():
+    class DummyLimiter:
+        def limit(self, *args, **kwargs):
+            def decorator(f):
+                return f
+            return decorator
+    
+    limiter = DummyLimiter()
+    print("Using dummy rate limiter")
+
 @app.route("/generate-matches", methods=["POST"])
 def generate_matches():
-    """AI-based mentorship matching using Gemini API"""
+    """AI-based mentorship matching using Gemini API with enhanced storage"""
     try:
-        print("Received request to generate matches")
+        logger.info("Received request to generate matches")
         data = request.json
         
         if not data:
+            logger.warning("No data provided in generate-matches request")
             return jsonify({"error": "No data provided"}), 400
             
         mentors = data.get('mentors', [])
         mentees = data.get('mentees', [])
         max_mentees_per_mentor = data.get('maxMenteesPerMentor', 3)  # Get setting from request
-        
+        save_to_db = data.get('saveToDatabase', True)  # Default to saving matches
+         
         if not mentors:
+            logger.warning("No mentors provided in generate-matches request")
             return jsonify({"error": "No mentors provided"}), 400
         if not mentees:
+            logger.warning("No mentees provided in generate-matches request")
             return jsonify({"error": "No mentees provided"}), 400
             
-        print(f"Processing match request with {len(mentors)} mentors and {len(mentees)} mentees")
-        print(f"Max mentees per mentor: {max_mentees_per_mentor}")
+        logger.info(f"Processing match request with {len(mentors)} mentors and {len(mentees)} mentees")
+        logger.info(f"Max mentees per mentor: {max_mentees_per_mentor}, Save to DB: {save_to_db}")
             
         # Create prompt for Gemini
         prompt = f"""
@@ -668,7 +690,7 @@ def generate_matches():
 
         print("Sending prompt to Gemini API")
         try:
-            # Use Gemini 1.5 Pro
+            # Use Gemini 2.5
             print(f"Attempting to generate matches with model: {GEMINI_MODEL}")
             response = genai.GenerativeModel(GEMINI_MODEL).generate_content(prompt)
             print(f"Successfully generated matches with {GEMINI_MODEL}")
@@ -722,33 +744,111 @@ def generate_matches():
                 elif "score" in match and "compatibilityScore" not in match:
                     match["compatibilityScore"] = match["score"]
                     
-            print(f"Successfully generated {len(matches)} matches")
+            logger.info(f"Successfully generated {len(matches)} matches")
             
-            # Save matches to Firestore if data wasn't provided directly and Firebase is available
-            if (not data or ('saveToFirestore' in data and data['saveToFirestore'])) and USE_FIREBASE and db:
+            # Validate and standardize the matches
+            sanitized_matches = []
+            for match in matches:
+                # Create a sanitized match object with standardized fields
+                sanitized_match = {}
+                
+                # Standardize field names
+                sanitized_match["menteeId"] = match.get("menteeId", match.get("mentee", ""))
+                sanitized_match["mentorId"] = match.get("mentorId", match.get("mentor", ""))
+                sanitized_match["matchReason"] = match.get("matchReason", match.get("reason", "AI-generated match"))
+                
+                # Ensure compatibility score is a number
                 try:
-                    print("Saving matches to Firestore")
-                    for match in matches:
-                        db.collection("mentorship_matches").add({
-                            "menteeId": match.get("menteeId"),
-                            "mentorId": match.get("mentorId"),
-                            "matchReason": match.get("reason", "AI-generated match"),
-                            "compatibilityScore": match.get("score", 80),
-                            "status": "pending",
-                            "createdAt": datetime.datetime.now().isoformat(),
-                            "aiGenerated": True
-                        })
-                    print("Matches saved to Firestore")
-                except Exception as e:
-                    print(f"Error saving matches to Firestore: {str(e)}")
-                    # Continue anyway since we'll return the matches to the client
-            elif not USE_FIREBASE or not db:
-                print("Firebase not available, skipping database storage")
+                    sanitized_match["compatibilityScore"] = float(match.get("compatibilityScore", match.get("score", 80)))
+                except (ValueError, TypeError):
+                    sanitized_match["compatibilityScore"] = 80
+                    
+                sanitized_match["status"] = "pending"
+                sanitized_match["createdAt"] = datetime.datetime.now().isoformat()
+                sanitized_match["aiGenerated"] = True
+                sanitized_match["generatedAt"] = datetime.datetime.now().isoformat()
+                
+                # Validate required fields
+                if not sanitized_match["menteeId"] or not sanitized_match["mentorId"]:
+                    logger.warning(f"Skipping match with missing IDs: {sanitized_match}")
+                    continue
+                    
+                # Add to sanitized matches list
+                sanitized_matches.append(sanitized_match)
             
-            # Return the matches
+            # Save matches to Firestore if requested 
+            stored_match_ids = []
+            if save_to_db:
+                if USE_FIREBASE and db:
+                    try:
+                        logger.info(f"Saving {len(sanitized_matches)} matches to Firestore")
+                        for match in sanitized_matches:
+                            # Create a document with auto-generated ID
+                            match_ref = db.collection("mentorship_matches").document()
+                            match_id = match_ref.id
+                            
+                            # Add ID to the match data
+                            match["id"] = match_id
+                            
+                            # Save to Firestore
+                            match_ref.set(match)
+                            
+                            # Track saved IDs
+                            stored_match_ids.append(match_id)
+                            
+                        logger.info(f"Successfully saved {len(stored_match_ids)} matches to Firestore")
+                    except Exception as e:
+                        logger.error(f"Error saving matches to Firestore: {str(e)}")
+                        # Continue anyway since we'll return the matches to the client
+                else:
+                    # Create a local storage for mock mode
+                    logger.info("Firebase not available, using local storage for matches")
+                    
+                    # Create mock_data directory if it doesn't exist
+                    mock_data_dir = os.path.join(os.path.dirname(__file__), "mock_data")
+                    os.makedirs(mock_data_dir, exist_ok=True)
+                    
+                    # Load existing matches or create empty array
+                    mock_matches_file = os.path.join(mock_data_dir, "mentorship_matches.json")
+                    existing_matches = []
+                    
+                    if os.path.exists(mock_matches_file):
+                        try:
+                            with open(mock_matches_file, 'r') as f:
+                                existing_matches = json.load(f)
+                                logger.info(f"Loaded {len(existing_matches)} existing matches from mock storage")
+                        except Exception as e:
+                            logger.error(f"Error loading mock matches: {str(e)}")
+                    
+                    # Add new matches with generated IDs
+                    for match in sanitized_matches:
+                        # Generate a unique ID
+                        match_id = f"mock-match-{len(existing_matches) + len(stored_match_ids) + 1}"
+                        match["id"] = match_id
+                        
+                        # Add to storage
+                        existing_matches.append(match)
+                        stored_match_ids.append(match_id)
+                    
+                    # Save updated matches
+                    try:
+                        with open(mock_matches_file, 'w') as f:
+                            json.dump(existing_matches, f, indent=2)
+                        logger.info(f"Successfully saved {len(sanitized_matches)} matches to mock storage")
+                    except Exception as e:
+                        logger.error(f"Error saving to mock storage: {str(e)}")
+            else:
+                logger.info("Skipping database storage as requested by user")
+                # Add mock IDs for consistency
+                for i, match in enumerate(sanitized_matches):
+                    match["id"] = f"mock-match-{i+1}"
+            
+            # Return the matches with tracking data
             return jsonify({
-                "message": f"Successfully generated {len(matches)} matches",
-                "matches": matches
+                "message": f"Successfully generated {len(sanitized_matches)} matches",
+                "matches": sanitized_matches,
+                "stored_match_ids": stored_match_ids,
+                "saved_to_database": len(stored_match_ids) > 0
             })
                 
         except json.JSONDecodeError as e:
@@ -762,8 +862,9 @@ def generate_matches():
         
 def generate_mock_matches(mentors, mentees):
     """Generate mock matches when AI generation fails"""
-    print("Generating mock matches")
+    logger.info("Generating mock matches as fallback")
     matches = []
+    stored_match_ids = []
     
     # Distribute mentees across mentors
     mentor_index = 0
@@ -777,39 +878,59 @@ def generate_mock_matches(mentors, mentees):
         mentee_id = mentee.get("id", f"mentee-{i}")
         mentor_id = mentor.get("id", f"mentor-{mentor_index}")
         
-        matches.append({
+        # Create standardized match object
+        match = {
             "menteeId": mentee_id,
             "mentorId": mentor_id,
-            "reason": f"Match based on compatible academic interests and mentorship expectations.",
-            "score": score
-        })
+            "matchReason": f"Match based on compatible academic interests and mentorship expectations.",
+            "compatibilityScore": score,
+            "status": "pending",
+            "createdAt": datetime.datetime.now().isoformat(),
+            "aiGenerated": True,
+            "isMockData": True,
+            "generatedAt": datetime.datetime.now().isoformat()
+        }
+        
+        matches.append(match)
         
         # Move to next mentor, loop back if needed
         mentor_index = (mentor_index + 1) % len(mentors)
     
-    print(f"Generated {len(matches)} mock matches")
+    logger.info(f"Generated {len(matches)} mock matches")
     
-    # Save mock matches to Firestore
-    try:
-        print("Saving mock matches to Firestore")
-        for match in matches:
-            db.collection("mentorship_matches").add({
-                "menteeId": match["menteeId"],
-                "mentorId": match["mentorId"],
-                "matchReason": match["reason"],
-                "compatibilityScore": match["score"],
-                "status": "pending",
-                "createdAt": datetime.datetime.now().isoformat(),
-                "aiGenerated": True,
-                "isMockData": True
-            })
-        print("Mock matches saved to Firestore")
-    except Exception as e:
-        print(f"Error saving mock matches to Firestore: {str(e)}")
+    # Save mock matches to Firestore if available
+    if USE_FIREBASE and db:
+        try:
+            logger.info("Saving mock matches to Firestore")
+            for match in matches:
+                # Create a document with auto-generated ID
+                match_ref = db.collection("mentorship_matches").document()
+                match_id = match_ref.id
+                
+                # Add ID to the match data
+                match["id"] = match_id
+                
+                # Save to Firestore
+                match_ref.set(match)
+                
+                # Track saved IDs
+                stored_match_ids.append(match_id)
+                
+            logger.info(f"Successfully saved {len(stored_match_ids)} mock matches to Firestore")
+        except Exception as e:
+            logger.error(f"Error saving mock matches to Firestore: {str(e)}")
+    else:
+        logger.info("Firebase not available, skipping database storage for mock matches")
+        # Add mock IDs for consistency
+        for i, match in enumerate(matches):
+            match["id"] = f"mock-match-{i+1}"
     
     return jsonify({
         "message": "Generated mock matches (AI matching failed)",
-        "matches": matches
+        "matches": matches,
+        "stored_match_ids": stored_match_ids,
+        "saved_to_database": len(stored_match_ids) > 0,
+        "is_mock_data": True
     })
 
 @app.route("/delete-match", methods=["POST"])
@@ -848,6 +969,275 @@ def delete_match():
         })
     except Exception as e:
         print(f"Error deleting match: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/create-test-match", methods=["POST"])
+def create_test_match():
+    """Create a test match between a mentor and mentee with the approved status"""
+    try:
+        data = request.json
+        mentor_id = data.get('mentorId')
+        mentee_id = data.get('menteeId')
+        
+        if not mentor_id or not mentee_id:
+            logger.warning("Missing required fields for test match creation")
+            return jsonify({"error": "Both mentorId and menteeId are required"}), 400
+            
+        # Create a test match
+        match_data = {
+            "mentorId": mentor_id,
+            "menteeId": mentee_id,
+            "status": "approved",  # Set to approved so it can be confirmed/rejected
+            "matchReason": "This is a test match created for demonstration purposes.",
+            "compatibilityScore": 90,
+            "createdAt": datetime.datetime.now().isoformat(),
+            "isTestMatch": True
+        }
+        
+        logger.info(f"Creating test match between mentor {mentor_id} and mentee {mentee_id}")
+        
+        # For testing in mock mode
+        if not USE_FIREBASE or not db:
+            logger.info("Creating mock test match")
+            match_data["id"] = "test-match-" + str(uuid.uuid4())[:8]
+            return jsonify({
+                "success": True,
+                "message": "Test match created successfully (MOCK)",
+                "match": match_data
+            })
+            
+        # Add to Firestore
+        match_ref = db.collection("mentorship_matches").document()
+        match_id = match_ref.id
+        match_data["id"] = match_id
+        match_ref.set(match_data)
+        
+        logger.info(f"Created test match {match_id} between mentor {mentor_id} and mentee {mentee_id}")
+        
+        return jsonify({
+            "success": True,
+            "message": "Test match created successfully",
+            "matchId": match_id,
+            "match": match_data
+        })
+    except Exception as e:
+        logger.error(f"Error creating test match: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/get-user-matches", methods=["POST"])
+def get_user_matches():
+    """Get all matches for a specific user (as mentor or mentee)"""
+    try:
+        data = request.json
+        user_id = data.get("userId")
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+        
+        # For mock mode - load matches from local storage
+        if not USE_FIREBASE or not db:
+            print(f"Using local storage to fetch matches for user {user_id}")
+            mock_data_dir = os.path.join(os.path.dirname(__file__), "mock_data")
+            mock_matches_file = os.path.join(mock_data_dir, "mentorship_matches.json")
+            
+            mentee_matches = []
+            mentor_matches = []
+            
+            if os.path.exists(mock_matches_file):
+                try:
+                    with open(mock_matches_file, 'r') as f:
+                        all_matches = json.load(f)
+                        print(f"Loaded {len(all_matches)} matches from mock storage")
+                        
+                        # Filter matches for this user
+                        for match in all_matches:
+                            if match.get("menteeId") == user_id:
+                                mentee_matches.append(match)
+                            elif match.get("mentorId") == user_id:
+                                mentor_matches.append(match)
+                                
+                        print(f"Found {len(mentee_matches)} mentee matches and {len(mentor_matches)} mentor matches")
+                except Exception as e:
+                    print(f"Error loading mock matches: {str(e)}")
+            
+            # If no matches found in storage, create a default one
+            if not mentee_matches and not mentor_matches:
+                mentee_matches = [
+                    {
+                        "id": "mock-match-1",
+                        "menteeId": user_id,
+                        "mentorId": "mock-mentor-1",
+                        "status": "approved",
+                        "matchReason": "This is a mock match for testing",
+                        "compatibilityScore": 85,
+                        "createdAt": datetime.datetime.now().isoformat()
+                    }
+                ]
+                
+            return jsonify({
+                "menteeMatches": mentee_matches,
+                "mentorMatches": mentor_matches,
+                "mock": True
+            })
+            
+        try:
+            # Get matches where user is a mentee
+            mentee_matches_query = db.collection("mentorship_matches").where("menteeId", "==", user_id).get()
+            mentee_matches = []
+            
+            for doc in mentee_matches_query:
+                match_data = doc.to_dict()
+                match_data["id"] = doc.id  # Add the document ID
+                mentee_matches.append(match_data)
+                
+            # Get matches where user is a mentor
+            mentor_matches_query = db.collection("mentorship_matches").where("mentorId", "==", user_id).get()
+            mentor_matches = []
+            
+            for doc in mentor_matches_query:
+                match_data = doc.to_dict()
+                match_data["id"] = doc.id  # Add the document ID
+                mentor_matches.append(match_data)
+                
+            print(f"Found {len(mentee_matches)} mentee matches and {len(mentor_matches)} mentor matches for user {user_id}")
+            
+            return jsonify({
+                "menteeMatches": mentee_matches,
+                "mentorMatches": mentor_matches
+            })
+            
+        except Exception as e:
+            print(f"Error retrieving matches from Firestore: {str(e)}")
+            return jsonify({
+                "error": str(e),
+                "menteeMatches": [],
+                "mentorMatches": []
+            }), 500
+            
+    except Exception as e:
+        print(f"Error in get_user_matches: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/update-match-status", methods=["POST"])
+def update_match_status():
+    """Update the status of a mentorship match"""
+    try:
+        data = request.json
+        match_id = data.get("matchId")
+        status = data.get("status")
+        user_id = data.get("userId")
+        
+        if not match_id or not status or not user_id:
+            return jsonify({
+                "error": "Missing required fields: matchId, status, and userId are required"
+            }), 400
+            
+        # Validate status
+        valid_statuses = ["pending", "approved", "confirmed", "rejected"]
+        if status not in valid_statuses:
+            return jsonify({
+                "error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            }), 400
+            
+        # For mock mode - update in local storage
+        if not USE_FIREBASE or not db:
+            print(f"Using local storage to update match {match_id} to status {status}")
+            mock_data_dir = os.path.join(os.path.dirname(__file__), "mock_data")
+            mock_matches_file = os.path.join(mock_data_dir, "mentorship_matches.json")
+            
+            if os.path.exists(mock_matches_file):
+                try:
+                    # Load existing matches
+                    with open(mock_matches_file, 'r') as f:
+                        all_matches = json.load(f)
+                    
+                    # Find and update the match
+                    found_match = False
+                    for match in all_matches:
+                        if match.get("id") == match_id:
+                            # Verify user is authorized
+                            if match.get("mentorId") != user_id and match.get("menteeId") != user_id:
+                                return jsonify({
+                                    "error": "Unauthorized. User is not associated with this match."
+                                }), 403
+                            
+                            # Update match status
+                            match["status"] = status
+                            match["updatedAt"] = datetime.datetime.now().isoformat()
+                            match["updatedBy"] = user_id
+                            found_match = True
+                            break
+                    
+                    if not found_match:
+                        return jsonify({
+                            "error": f"Match with ID {match_id} not found"
+                        }), 404
+                    
+                    # Save updated matches
+                    with open(mock_matches_file, 'w') as f:
+                        json.dump(all_matches, f, indent=2)
+                    
+                    print(f"Successfully updated match {match_id} status to {status}")
+                    return jsonify({
+                        "success": True,
+                        "message": f"Match status updated to {status}",
+                        "timestamp": datetime.datetime.now().isoformat()
+                    })
+                    
+                except Exception as e:
+                    print(f"Error updating match in mock storage: {str(e)}")
+                    return jsonify({
+                        "error": str(e)
+                    }), 500
+            
+            # If file doesn't exist, return success anyway for testing
+            return jsonify({
+                "success": True,
+                "message": f"Match status updated to {status} (mock mode)",
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+            
+        try:
+            # Get the match to verify the user is authorized to update it
+            match_ref = db.collection("mentorship_matches").document(match_id)
+            match_doc = match_ref.get()
+            
+            if not match_doc.exists:
+                return jsonify({
+                    "error": f"Match with ID {match_id} not found"
+                }), 404
+                
+            match_data = match_doc.to_dict()
+            
+            # Verify user is authorized (must be the mentor or mentee of this match)
+            if match_data.get("mentorId") != user_id and match_data.get("menteeId") != user_id:
+                return jsonify({
+                    "error": "Unauthorized. User is not associated with this match."
+                }), 403
+                
+            # Update the match status
+            update_data = {
+                "status": status,
+                "updatedAt": datetime.datetime.now().isoformat(),
+                "updatedBy": user_id
+            }
+            
+            match_ref.update(update_data)
+            
+            return jsonify({
+                "success": True,
+                "message": f"Match status updated to {status}",
+                "timestamp": datetime.datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            print(f"Error updating match status in Firestore: {str(e)}")
+            return jsonify({
+                "error": str(e)
+            }), 500
+            
+    except Exception as e:
+        print(f"Error in update_match_status: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/health", methods=["GET"])

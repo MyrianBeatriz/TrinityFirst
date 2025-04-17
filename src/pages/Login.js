@@ -76,24 +76,33 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
+    
+    console.log("Attempting login with email:", email);
+    console.log("Firebase Auth initialized:", auth !== undefined);
 
     try {
       // Authenticate user
+      console.log("Calling signInWithEmailAndPassword...");
       const userCredential = await auth.signInWithEmailAndPassword(email, password);
+      console.log("Login successful, got user credential:", userCredential?.user?.uid);
       const user = userCredential.user;
 
       // Fetch user role from Firestore
+      console.log("Fetching user data from Firestore...");
       const userRef = firestore.collection("users").doc(user.uid);
       const userSnap = await userRef.get();
 
       if (userSnap.exists) {
         const userData = userSnap.data();
-        console.log("Logged in user role:", userData.role);  // Debugging log
+        console.log("User data retrieved:", userData);
+        console.log("Logged in user role:", userData.role);
 
         // Redirect based on role
         if (userData.role === "admin") {
+          console.log("Redirecting to admin dashboard");
           navigate("/admin");  // ✅ Redirect to Admin Dashboard
         } else {
+          console.log("Redirecting to user dashboard");
           navigate("/dashboard");  // ✅ Redirect to User Dashboard
         }
       } else {
@@ -102,7 +111,19 @@ const Login = () => {
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("Login failed. Please check your email and password.");
+      console.error("Error code:", err.code);
+      console.error("Error message:", err.message);
+      
+      // Show a more specific error message based on the error code
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        setError("Login failed. Please check your email and password.");
+      } else if (err.code === 'auth/invalid-api-key') {
+        setError("Authentication error: Invalid API key. Please contact support.");
+      } else if (err.code === 'auth/network-request-failed') {
+        setError("Network error. Please check your internet connection.");
+      } else {
+        setError(`Login failed: ${err.message}`);
+      }
     }
   };
 
@@ -148,4 +169,3 @@ const Login = () => {
 };
 
 export default Login;
-

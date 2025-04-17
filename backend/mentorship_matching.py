@@ -49,7 +49,7 @@ api_configured = configure_gemini_api()
 # Set up the model
 if api_configured:
     try:
-        model = genai.GenerativeModel('gemini-1.5-pro-latest')
+        model = genai.GenerativeModel('gemini-2.5-experimental')
         logger.info("Successfully created Gemini model instance")
     except Exception as e:
         logger.error(f"Error creating model: {str(e)}")
@@ -185,7 +185,7 @@ def create_matching_prompt(mentors, mentees):
         prompt += f"""
         Mentee ID: {mentee.get('id')}
         Name: {mentee.get('name')}
-        Major: {mentor.get('major', 'Not specified')}
+        Major: {mentee.get('major', 'Not specified')}
         Career Goals: {mentee.get('careerGoals', 'Not specified')}
         Challenges: {mentee.get('challenges', 'Not specified')}
         Expectations: {mentee.get('expectations', 'Not specified')}

@@ -1,11 +1,8 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { auth, firestore } from "./firebase";
-<<<<<<< HEAD
-import { doc, getDoc, onAuthStateChanged } from "firebase/firestore"; // Modern Firebase imports
-=======
-import { doc, getDoc } from "firebase/firestore";  // ✅ Ensure correct Firestore imports
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
+import { doc, getDoc } from "firebase/firestore";
 
 import Home from "./pages/Home";
 import About from "./pages/About";
@@ -14,19 +11,13 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Events from "./pages/Events";
-<<<<<<< HEAD
 import Stories from "./pages/Stories";
-import AdminDashboard from "./pages/AdminDashboard";
-import MentorshipSignup from "./pages/MentorshipSignup";
-import MentorshipSettings from "./pages/MentorshipSettings";
 import Resources from "./pages/Resources";
-import Navbar from "./components/layout/Navbar"; 
-=======
 import AdminDashboard from "./pages/AdminDashboard";
 import MentorshipSignup from "./pages/MentorshipSignup";
 import MentorshipSettings from "./pages/MentorshipSettings";
 import Navbar from "./components/layout/Navbar"; // ✅ Ensures Navbar is always available
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
+import ResourceDebug from "./components/ResourceDebug";
 
 function App() {
   const [user, setUser] = useState(null);
@@ -71,16 +62,22 @@ function App() {
         <Route path="/about" element={<About />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
-<<<<<<< HEAD
-        <Route path="/stories" element={<Stories />} /> {/* Public route, accessible to all users */}
-        <Route path="/resources" element={<Resources />} />
-=======
->>>>>>> 09f0806cc5ae6a4638843c88a8638f22489dfb17
-        <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+        {/* Dashboard routes - redirects to admin or user dashboard based on role */}
+        <Route 
+          path="/dashboard" 
+          element={
+            user ? (
+              role === "admin" ? <AdminDashboard /> : <Dashboard />
+            ) : <Navigate to="/login" />
+          } 
+        />
         <Route path="/profile/:id" element={user ? <Profile /> : <Navigate to="/login" />} />
         <Route path="/events" element={user ? <Events /> : <Navigate to="/login" />} />
+        <Route path="/stories" element={<Stories />} />
+        <Route path="/resources" element={user ? <Resources /> : <Navigate to="/login" />} />
+        <Route path="/resource-debug" element={<ResourceDebug />} />
 
-        {/* Secure Admin Dashboard */}
+        {/* Direct admin route - for explicit admin dashboard access */}
         {role === "admin" && <Route path="/admin" element={<AdminDashboard />} />}
 
         {/* Mentorship Program Routes */}

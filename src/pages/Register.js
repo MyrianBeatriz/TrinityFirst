@@ -83,12 +83,17 @@ const Register = () => {
       return;
     }
 
+    console.log("Starting registration process...");
+    console.log("Firebase Auth initialized:", auth !== undefined);
+
     try {
+      console.log("Attempting to create user with email:", formData.email);
       // Create user in Firebase Authentication
       const { user } = await auth.createUserWithEmailAndPassword(formData.email, formData.password);
+      console.log("User created successfully in Authentication:", user.uid);
 
-      // Save user details in Firestore
-      await firestore.collection("users").doc(user.uid).set({
+      // Prepare user data for Firestore
+      const userData = {
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
@@ -96,13 +101,36 @@ const Register = () => {
         major: formData.major,
         bio: formData.bio,
         role: "user", // ✅ Default user role
-      });
+        createdAt: new Date().toISOString()
+      };
+      
+      console.log("Saving user data to Firestore:", userData);
+      
+      // Save user details in Firestore
+      await firestore.collection("users").doc(user.uid).set(userData);
+      console.log("User data saved successfully to Firestore");
 
       alert("Registration successful! Redirecting to login page...");
       navigate("/login");
     } catch (err) {
-      setError(err.message);
       console.error("Error during registration:", err);
+      console.error("Error code:", err.code);
+      console.error("Error message:", err.message);
+      
+      // Show a more specific error message based on the error code
+      if (err.code === 'auth/email-already-in-use') {
+        setError("This email is already registered. Please use a different email or try logging in.");
+      } else if (err.code === 'auth/invalid-email') {
+        setError("Please enter a valid email address.");
+      } else if (err.code === 'auth/weak-password') {
+        setError("Password is too weak. Please use a stronger password.");
+      } else if (err.code === 'auth/invalid-api-key') {
+        setError("Authentication error: Invalid API key. Please contact support.");
+      } else if (err.code === 'auth/network-request-failed') {
+        setError("Network error. Please check your internet connection.");
+      } else {
+        setError(`Registration failed: ${err.message}`);
+      }
     }
   };
 
@@ -195,4 +223,3 @@ const Register = () => {
 };
 
 export default Register;
-

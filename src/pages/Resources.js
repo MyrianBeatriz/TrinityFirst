@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { firestore } from "../firebase";
-import { collection, getDocs, query, orderBy, where } from "firebase/firestore";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 
 const Resources = () => {
   const [resources, setResources] = useState([]);
@@ -27,17 +27,32 @@ const Resources = () => {
     const fetchResources = async () => {
       try {
         setLoading(true);
+        console.log("Fetching resources...");
         const resourcesRef = collection(firestore, "resources");
         const resourcesQuery = query(resourcesRef, orderBy("publishDate", "desc"));
         const resourcesSnap = await getDocs(resourcesQuery);
         
-        const resourcesData = resourcesSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const resourcesData = resourcesSnap.docs.map(doc => {
+          const data = doc.data();
+          // Ensure all required fields have default values if missing
+          return {
+            id: doc.id,
+            title: data.title || "Untitled Resource",
+            description: data.description || "No description provided",
+            category: data.category || "other",
+            link: data.link || "#",
+            createdBy: data.createdBy || "Anonymous",
+            featured: Boolean(data.featured),
+            publishDate: data.publishDate || new Date().toISOString(),
+            ...data  // Include any other fields from the document
+          };
+        });
+        
+        console.log(`Fetched ${resourcesData.length} resources`);
         
         // Separate featured resources from regular resources
         const featured = resourcesData.filter(resource => resource.featured);
+        console.log(`Found ${featured.length} featured resources`);
         
         setResources(resourcesData);
         setFeaturedResources(featured);
@@ -68,63 +83,91 @@ const Resources = () => {
   };
 
   // Render a resource card
-  const ResourceCard = ({ resource }) => (
-    <div style={styles.resourceCard}>
-      <div style={styles.resourceHeader}>
-        <h3 style={styles.resourceTitle}>{resource.title}</h3>
-        {resource.featured && <span style={styles.featuredBadge}>Featured</span>}
-      </div>
-      
-      <div style={styles.resourceMeta}>
-        <span style={{
-          ...styles.categoryBadge,
-          backgroundColor: 
-            resource.category === 'scholarship' ? '#ebf8ff' :
-            resource.category === 'internship' ? '#e6fffa' :
-            resource.category === 'job' ? '#faf5ff' :
-            resource.category === 'academic' ? '#f0fff4' :
-            resource.category === 'financial' ? '#fffaf0' :
-            resource.category === 'campus' ? '#fff5f7' :
-            resource.category === 'community' ? '#f7fafc' : '#f7fafc',
-          color:
-            resource.category === 'scholarship' ? '#2b6cb0' :
-            resource.category === 'internship' ? '#2c7a7b' :
-            resource.category === 'job' ? '#6b46c1' :
-            resource.category === 'academic' ? '#2f855a' :
-            resource.category === 'financial' ? '#c05621' :
-            resource.category === 'campus' ? '#b83280' :
-            resource.category === 'community' ? '#4a5568' : '#4a5568'
-        }}>
-          {resourceCategories.find(cat => cat.value === resource.category)?.label.slice(0, -1) || "Other"}
-        </span>
+  const ResourceCard = ({ resource }) => {
+    // Safely format the date, or use "Unknown date" if invalid
+    const formatDate = (dateString) => {
+      try {
+        return new Date(dateString).toLocaleDateString();
+      } catch (error) {
+        return "Unknown date";
+      }
+    };
+    
+    // Safely truncate description if needed
+    const getDescription = (text) => {
+      if (!text) return "No description available";
+      return text.length > 300 ? `${text.substring(0, 300)}...` : text;
+    };
+    
+    // Find the category label or use "Other" as fallback
+    const getCategoryLabel = (categoryValue) => {
+      return resourceCategories.find(cat => cat.value === categoryValue)?.label.slice(0, -1) || "Other";
+    };
+    
+    return (
+      <div style={styles.resourceCard}>
+        <div style={styles.resourceHeader}>
+          <h3 style={styles.resourceTitle}>{resource.title || "Untitled Resource"}</h3>
+          {resource.featured && <span style={styles.featuredBadge}>Featured</span>}
+        </div>
         
-        <span style={styles.resourceDate}>
-          Added: {new Date(resource.publishDate).toLocaleDateString()}
-        </span>
-      </div>
-      
-      {resource.createdBy && (
-        <p style={styles.createdByText}>
-          Created by: {resource.createdBy}
+        <div style={styles.resourceMeta}>
+          <span style={{
+            ...styles.categoryBadge,
+            backgroundColor: 
+              resource.category === 'scholarship' ? '#ebf8ff' :
+              resource.category === 'internship' ? '#e6fffa' :
+              resource.category === 'job' ? '#faf5ff' :
+              resource.category === 'academic' ? '#f0fff4' :
+              resource.category === 'financial' ? '#fffaf0' :
+              resource.category === 'campus' ? '#fff5f7' :
+              resource.category === 'community' ? '#f7fafc' : '#f7fafc',
+            color:
+              resource.category === 'scholarship' ? '#2b6cb0' :
+              resource.category === 'internship' ? '#2c7a7b' :
+              resource.category === 'job' ? '#6b46c1' :
+              resource.category === 'academic' ? '#2f855a' :
+              resource.category === 'financial' ? '#c05621' :
+              resource.category === 'campus' ? '#b83280' :
+              resource.category === 'community' ? '#4a5568' : '#4a5568'
+          }}>
+            {getCategoryLabel(resource.category)}
+          </span>
+          
+          <span style={styles.resourceDate}>
+            Added: {formatDate(resource.publishDate)}
+          </span>
+        </div>
+        
+        {resource.createdBy && (
+          <p style={styles.createdByText}>
+            Created by: {resource.createdBy}
+          </p>
+        )}
+        
+        <p style={styles.resourceDescription}>
+          {getDescription(resource.description)}
         </p>
-      )}
-      
-      <p style={styles.resourceDescription}>
-        {resource.description}
-      </p>
-      
-      <div style={styles.resourceActions}>
-        <a 
-          href={resource.link} 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          style={styles.resourceLink}
-        >
-          Access Resource →
-        </a>
+        
+        <div style={styles.resourceActions}>
+          {resource.link && resource.link !== "#" ? (
+            <a 
+              href={resource.link} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              style={styles.resourceLink}
+            >
+              Access Resource →
+            </a>
+          ) : (
+            <span style={{...styles.resourceLink, opacity: 0.5, cursor: "not-allowed"}}>
+              No Link Available
+            </span>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div style={styles.container}>
