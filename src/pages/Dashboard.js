@@ -58,29 +58,47 @@ const MenteeDashboard = () => {
           console.error("No user data found");
         }
         
-        // Check if user has submitted application
-        const signupRef = doc(firestore, "mentorship_signups", user.uid);
-        const signupSnap = await getDoc(signupRef);
-      
-        if (signupSnap.exists()) {
-          setHasSubmittedApplication(true);
+        // Check if user has submitted application - use a try/catch for robustness
+        try {
+          console.log("Checking if user has submitted a mentorship application");
+          const signupRef = doc(firestore, "mentorship_signups", user.uid);
+          const signupSnap = await getDoc(signupRef);
+        
+          if (signupSnap.exists()) {
+            console.log("User has submitted a mentorship application");
+            setHasSubmittedApplication(true);
+          } else {
+            console.log("No mentorship application found for user");
+            setHasSubmittedApplication(false);
+          }
+        } catch (error) {
+          console.error("Error checking mentorship application status:", error);
+          // Default to false if there's an error, so user can still apply
+          setHasSubmittedApplication(false);
         }
         
         // Check if mentorship signups are enabled
         try {
+          console.log("Checking if mentorship signups are enabled");
           const mentorshipRef = doc(firestore, "mentorship", "programId");
           const mentorshipSnap = await getDoc(mentorshipRef);
           
           if (mentorshipSnap.exists()) {
             const mentorshipData = mentorshipSnap.data();
             // Set signup status based on "open" or "closed" status
-            setMentorshipSignupsEnabled(mentorshipData.status === "open");
+            const isEnabled = mentorshipData.status === "open";
+            console.log(`Mentorship signups are ${isEnabled ? 'enabled' : 'disabled'}`);
+            setMentorshipSignupsEnabled(isEnabled);
           } else {
-            setMentorshipSignupsEnabled(false);
+            console.log("No mentorship program settings found, defaulting to enabled");
+            // Default to true for development/testing if no settings found
+            setMentorshipSignupsEnabled(true);
           }
         } catch (error) {
           console.error("Error checking mentorship status:", error);
-          setMentorshipSignupsEnabled(false);
+          // Default to true for development/testing if there's an error
+          console.log("Error occurred, defaulting mentorship signups to enabled");
+          setMentorshipSignupsEnabled(true);
         }
 
         // FIRST TRY API ENDPOINT (preferred method)
@@ -780,25 +798,61 @@ const MenteeDashboard = () => {
     <div style={styles.noMentorCard}>
       <p style={styles.noMentorMessage}>
         {hasSubmittedApplication ? (
-          "Thank you for your application! You haven't been matched with a mentor yet. We're working on finding the perfect match for you."
+          "Thank you for your application! Your mentorship application has been received and is being processed. We're working on finding the perfect match for you."
         ) : (
           <>
-            You haven't been matched with a mentor yet.
             {!mentorMatch && mentorshipSignupsEnabled ? (
-              <Link to="/mentorship-signup" style={styles.signupLink}>
-                Sign up for mentorship
-              </Link>
+              <>
+                <span>Mentorship program is currently open! </span>
+                <Link 
+                  to="/mentorship-signup" 
+                  style={styles.signupLink}
+                  onClick={() => {
+                    console.log("Mentorship signup link clicked within Your Mentorship Connection");
+                    console.log("Current state:", { 
+                      hasSubmittedApplication, 
+                      hasMentorMatch: !!mentorMatch, 
+                      mentorshipSignupsEnabled 
+                    });
+                  }}
+                >
+                  Sign up as a mentor or mentee
+                </Link>
+                <span> to participate in our mentorship program.</span>
+              </>
             ) : !mentorMatch ? (
-              <span> Mentorship signups are currently closed.</span>
+              <span>Mentorship signups are currently closed. Please check back later for the next enrollment period.</span>
             ) : null}
           </>
         )}
       </p>
       {mentorMatch && mentorMatch.status === "rejected" && (
-        <p style={styles.rejectedMessage}>
-          Your previous match was declined. You can sign up again when you're ready.
-        </p>
+        <>
+          <p style={styles.rejectedMessage}>
+            Your previous match was declined. You can sign up again when you're ready.
+          </p>
+          {mentorshipSignupsEnabled && (
+            <div style={styles.rejoinButtonContainer}>
+              <Link 
+                to="/mentorship-signup?fromRejected=true" 
+                style={styles.rejoinButton}
+                onClick={() => {
+                  console.log("Apply for a new match clicked");
+                  console.log("Current state:", { 
+                    hasSubmittedApplication, 
+                    mentorMatch: mentorMatch ? mentorMatch.status : null,
+                    mentorshipSignupsEnabled 
+                  });
+                }}
+              >
+                Apply for a new match
+              </Link>
+            </div>
+          )}
+        </>
       )}
+      
+      {/* Removed the redundant signup button as requested */}
     </div>
   )}
 </div>
@@ -1177,6 +1231,42 @@ const styles = {
     margin: "0 auto",
     padding: "2rem 1.5rem"
   },
+  rejoinButtonContainer: {
+    marginTop: "1rem",
+    textAlign: "center"
+  },
+  rejoinButton: {
+    display: "inline-block",
+    backgroundColor: "#3182ce",
+    color: "white",
+    padding: "0.75rem 1.5rem",
+    borderRadius: "6px",
+    textDecoration: "none",
+    fontWeight: "600"
+  },
+  signupButtonContainer: {
+    marginTop: "1.5rem",
+    textAlign: "center",
+    padding: "1.5rem",
+    backgroundColor: "#ebf8ff",
+    borderRadius: "8px",
+    border: "2px solid #3182ce"
+  },
+  primarySignupButton: {
+    display: "inline-block",
+    backgroundColor: "#1a365d",
+    color: "white", 
+    padding: "1rem 2rem",
+    borderRadius: "6px",
+    textDecoration: "none",
+    fontWeight: "700",
+    fontSize: "1.1rem",
+    marginBottom: "0.75rem"
+  },
+  signupDescription: {
+    color: "#4a5568",
+    fontSize: "0.95rem"
+  },
   loadingContainer: {
     display: "flex",
     justifyContent: "center",
@@ -1403,8 +1493,8 @@ const styles = {
   signupLink: {
     color: "#3182ce",
     textDecoration: "none",
-    fontWeight: "500",
-    marginLeft: "0.5rem"
+    fontWeight: "600",
+    margin: "0 0.3rem"
   },
   pendingMessage: {
     fontSize: "0.95rem",

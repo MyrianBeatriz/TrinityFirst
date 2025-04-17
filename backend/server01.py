@@ -46,7 +46,7 @@ else:
 # Get Firebase credentials path from environment variable with fallback
 FIREBASE_CREDENTIALS_PATH = os.environ.get(
     "FIREBASE_CREDENTIALS_PATH", 
-    os.path.join(os.path.dirname(__file__), "trinity-first-13999-firebase-adminsdk-qrrx7-c432d03c58.json")
+    os.path.join(os.path.dirname(__file__), "trinity-first-13999-firebase-adminsdk-qrrx7-9031665a31.json")
 )
 
 # Make sure the credentials file exists, otherwise use mock mode
@@ -63,7 +63,13 @@ if USE_FIREBASE:
         cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
         firebase_admin.initialize_app(cred)
         db = firestore.client()
-        print("Successfully initialized Firebase")
+        print(f"Successfully initialized Firebase with credentials from: {FIREBASE_CREDENTIALS_PATH}")
+        # Test Firestore connection by accessing a simple collection
+        try:
+            test_doc = db.collection("mentorship_test").document("test").get()
+            print("Firestore connection test successful")
+        except Exception as conn_err:
+            print(f"Note: Firestore test read failed, but initialization succeeded: {str(conn_err)}")
     except Exception as e:
         print(f"Error initializing Firebase: {str(e)}")
         USE_FIREBASE = False

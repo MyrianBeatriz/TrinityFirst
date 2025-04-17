@@ -2,13 +2,11 @@ import React, { useState, useEffect } from "react";
 
 import { auth, firestore } from "../firebase"; // Removed storage import
 import { useNavigate } from "react-router-dom";
-import { checkExistingSignup } from "../services/api"; // Import the utility function
 
 const MentorshipSignup = () => {
   const navigate = useNavigate();
   const [mentorshipRole, setMentorshipRole] = useState("");
 
-  
   // Common fields for both roles
   const [expectations, setExpectations] = useState("");
   const [careerGoals, setCareerGoals] = useState("");
@@ -42,46 +40,110 @@ const MentorshipSignup = () => {
     buildingConfidence: false
   });
   
-  
   // UI states
   const [loading, setLoading] = useState(true);
   const [processingContent, setProcessingContent] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState(null);
 
+  // Function to check if a user has an existing signup
+  const checkExistingSignup = async (userId) => {
+    try {
+      // Get API URL from environment with fallback to localhost
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
+      
+      const response = await fetch(`${apiUrl}/check-signup-status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest"
+        },
+        body: JSON.stringify({ userId }),
+        credentials: "same-origin"
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}: ${await response.text()}`);
+      }
+
+      const data = await response.json();
+      return {
+        exists: data.exists || false,
+        role: data.role || null,
+        error: data.error || null
+      };
+    } catch (error) {
+      console.error("Error checking signup status:", error);
+      return {
+        exists: false,
+        role: null,
+        error: error.message
+      };
+    }
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
-      const user = auth.currentUser;
-      if (!user) return navigate("/login");
-
-  
       try {
         setLoading(true);
         
-        // Check if user already has a signup
-        const { exists, role, error } = await checkExistingSignup(user.uid);
+        // Check if user is authenticated
+        const user = auth.currentUser;
+        if (!user) {
+          console.log("No authenticated user found, redirecting to login");
+          navigate("/login");
+          return;
+        }
         
-        if (error) {
-          console.error("Error checking signup status:", error);
-          setSignupError("Unable to verify your signup status. Please try again later.");
-        } else if (exists) {
-          setHasExistingSignup(true);
-          setExistingRole(role);
-          console.log(`User has already signed up as a ${role || "participant"}`);
+        console.log("Checking mentorship signup status for user:", user.uid);
+        
+        // Check URL parameters for context
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromRejected = urlParams.get("fromRejected") === "true";
+        
+        if (fromRejected) {
+          console.log("User is coming from a rejected match, allowing new signup");
+          setHasExistingSignup(false);
+          setExistingRole(null);
+        } else {
+          // Normal flow - check if user already has a signup
+          const { exists, role, error } = await checkExistingSignup(user.uid);
+          
+          if (error) {
+            console.error("Error checking signup status:", error);
+            // Just log the error but don't show it to the user
+            // Default to allowing signup in case of errors
+            setHasExistingSignup(false);
+          } else if (exists) {
+            console.log(`User has already signed up as a ${role || "participant"}`);
+            setHasExistingSignup(true);
+            setExistingRole(role);
+          } else {
+            console.log("User has not signed up for mentorship program yet");
+            setHasExistingSignup(false);
+          }
         }
   
-        // Existing code for fetching user data...
-        const userRef = firestore.collection("users").doc(user.uid);
-        const userSnap = await userRef.get();
-  
-        if (userSnap.exists) {
-          setMajor(userSnap.data().major || "");
+        // Fetch user profile data from Firestore
+        try {
+          const userRef = firestore.collection("users").doc(user.uid);
+          const userSnap = await userRef.get();
+    
+          if (userSnap.exists) {
+            setMajor(userSnap.data().major || "");
+            console.log("Loaded user data from Firestore");
+          } else {
+            console.log("No user profile found in Firestore");
+          }
+        } catch (profileError) {
+          console.error("Error fetching user profile:", profileError);
+          // Continue anyway to allow signup even without profile data
         }
   
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching user data:", error);
+        console.error("Error in fetchUserData:", error);
         setLoading(false);
-        setSignupError("Error loading your information. Please try again later.");
+        // Error handling is now silent to the user - just log to console
       }
     };
   
@@ -94,6 +156,7 @@ const MentorshipSignup = () => {
       [topic]: !prev[topic]
     }));
   };
+
   // New file handling approach - direct file processing without Firebase Storage
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
@@ -134,6 +197,11 @@ const MentorshipSignup = () => {
         throw new Error('Invalid user ID format');
       }
       formData.append('userId', userId);
+      
+      // Add mentorship role to request
+      if (!mentorshipRole) {
+        throw new Error('Please select a mentorship role first');
+      }
       formData.append('role', mentorshipRole);
       
       console.log("Sending file for AI processing...");
@@ -167,22 +235,7 @@ const MentorshipSignup = () => {
       );
       
       if (useAiContent) {
-        if (mentorshipRole === "Mentor") {
-          // Apply mentor-specific content
-          if (result.academicInterests) setAcademicInterests(result.academicInterests);
-          if (result.mentorMotivation) setMentorMotivation(result.mentorMotivation);
-          if (result.firstGenChallenges) setFirstGenChallenges(result.firstGenChallenges);
-          if (result.mentorStrengths) setMentorStrengths(result.mentorStrengths);
-          if (result.communicationStyle) setCommunicationStyle(result.communicationStyle);
-          if (result.extracurriculars) setExtracurriculars(result.extracurriculars);
-        } else {
-          // Apply mentee content
-          if (result.careerGoals) setCareerGoals(result.careerGoals);
-          if (result.experienceSummary) setExperienceSummary(result.experienceSummary);
-          if (result.challenges) setChallenges(result.challenges);
-        }
-        if (result.expectations) setExpectations(result.expectations);
-        if (result.additionalInfo) setAdditionalInfo(result.additionalInfo);
+        applyAllSuggestions(result);
       }
     } catch (error) {
       console.error("Error processing file with AI:", error);
@@ -199,10 +252,18 @@ const MentorshipSignup = () => {
       return;
     }
     
+    if (!mentorshipRole) {
+      alert("Please select a mentorship role first");
+      return;
+    }
+    
     setProcessingContent(true);
     
     try {
-      const response = await fetch("http://127.0.0.1:5001/extract-content", {
+      // Use API URL from environment variables
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
+      
+      const response = await fetch(`${apiUrl}/extract-content`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -225,7 +286,7 @@ const MentorshipSignup = () => {
       );
       
       if (useAiContent) {
-        applyAllSuggestions();
+        applyAllSuggestions(result);
       }
     } catch (error) {
       console.error("LinkedIn processing failed:", error);
@@ -236,96 +297,112 @@ const MentorshipSignup = () => {
   };
 
   // Apply all AI suggestions at once
-  const applyAllSuggestions = () => {
-    if (!aiSuggestions) return;
+  const applyAllSuggestions = (suggestions) => {
+    if (!suggestions) return;
     
     // Apply common fields
-    if (aiSuggestions.expectations) setExpectations(aiSuggestions.expectations);
-    if (aiSuggestions.additionalInfo) setAdditionalInfo(aiSuggestions.additionalInfo);
+    if (suggestions.expectations) setExpectations(suggestions.expectations);
+    if (suggestions.additionalInfo) setAdditionalInfo(suggestions.additionalInfo);
     
     if (mentorshipRole === "Mentor") {
       // Apply mentor-specific fields
-      if (aiSuggestions.academicInterests) setAcademicInterests(aiSuggestions.academicInterests);
-      if (aiSuggestions.mentorMotivation) setMentorMotivation(aiSuggestions.mentorMotivation);
-      if (aiSuggestions.firstGenChallenges) setFirstGenChallenges(aiSuggestions.firstGenChallenges);
-      if (aiSuggestions.mentorStrengths) setMentorStrengths(aiSuggestions.mentorStrengths);
-      if (aiSuggestions.communicationStyle) setCommunicationStyle(aiSuggestions.communicationStyle);
-      if (aiSuggestions.extracurriculars) setExtracurriculars(aiSuggestions.extracurriculars);
+      if (suggestions.academicInterests) setAcademicInterests(suggestions.academicInterests);
+      if (suggestions.mentorMotivation) setMentorMotivation(suggestions.mentorMotivation);
+      if (suggestions.firstGenChallenges) setFirstGenChallenges(suggestions.firstGenChallenges);
+      if (suggestions.mentorStrengths) setMentorStrengths(suggestions.mentorStrengths);
+      if (suggestions.communicationStyle) setCommunicationStyle(suggestions.communicationStyle);
+      if (suggestions.extracurriculars) setExtracurriculars(suggestions.extracurriculars);
+      if (suggestions.desiredSupport) setDesiredSupport(suggestions.desiredSupport);
     } else {
       // Apply mentee fields
-      if (aiSuggestions.careerGoals) setCareerGoals(aiSuggestions.careerGoals);
-      if (aiSuggestions.experienceSummary) setExperienceSummary(aiSuggestions.experienceSummary);
-      if (aiSuggestions.challenges) setChallenges(aiSuggestions.challenges);
+      if (suggestions.careerGoals) setCareerGoals(suggestions.careerGoals);
+      if (suggestions.experienceSummary) setExperienceSummary(suggestions.experienceSummary);
+      if (suggestions.challenges) setChallenges(suggestions.challenges);
     }
   };
-
-  // Apply individual AI suggestion - Not currently used but kept for future implementation
-  // const applyAiSuggestion = (field) => {
-  //   if (!aiSuggestions || !aiSuggestions[field]) return;
-  //   
-  //   // Use a switch statement to handle all possible fields
-  //   switch(field) {
-  //     // Common fields
-  //     case 'expectations':
-  //       setExpectations(aiSuggestions.expectations);
-  //       break;
-  //     case 'additionalInfo':
-  //       setAdditionalInfo(aiSuggestions.additionalInfo);
-  //       break;
-  //     
-  //     // Mentee fields  
-  //     case 'careerGoals':
-  //       setCareerGoals(aiSuggestions.careerGoals);
-  //       break;
-  //     case 'experienceSummary':
-  //       setExperienceSummary(aiSuggestions.experienceSummary);
-  //       break;
-  //     case 'challenges':
-  //       setChallenges(aiSuggestions.challenges);
-  //       break;
-  //     
-  //     // Mentor fields
-  //     case 'academicInterests':
-  //       setAcademicInterests(aiSuggestions.academicInterests);
-  //       break;
-  //     case 'extracurriculars':
-  //       setExtracurriculars(aiSuggestions.extracurriculars);
-  //       break;
-  //     case 'mentorMotivation':
-  //       setMentorMotivation(aiSuggestions.mentorMotivation);
-  //       break;
-  //     case 'firstGenChallenges':
-  //       setFirstGenChallenges(aiSuggestions.firstGenChallenges);
-  //       break;
-  //     case 'mentorStrengths':
-  //       setMentorStrengths(aiSuggestions.mentorStrengths);
-  //       break;
-  //     case 'communicationStyle':
-  //       setCommunicationStyle(aiSuggestions.communicationStyle);
-  //       break;
-  //     default:
-  //       break;
-  //   }
-  // };
 
   // Handle form submission
   const handleSignup = async (e) => {
     e.preventDefault();
+    
+    // Check if user is authenticated
+    const user = auth.currentUser;
+    if (!user) {
+      console.error("No authenticated user found");
+      alert("You must be logged in to sign up for mentorship. Redirecting to login...");
+      navigate("/login");
+      return;
+    }
 
+    // Add special handling for submission with existing signup
     if (hasExistingSignup) {
-      alert(`You have already signed up as a ${existingRole || "participant"} in the mentorship program.`);
-      return; // This will exit the function early, preventing submission
+      console.log(`User already signed up as: ${existingRole}`);
+      
+      // If application was rejected, we'll still allow a new submission
+      // Check for rejection in URL query params
+      const urlParams = new URLSearchParams(window.location.search);
+      const fromRejected = urlParams.get("fromRejected") === "true";
+      
+      if (fromRejected) {
+        console.log("User is reapplying after rejection, allowing submission");
+        // Continue with submission...
+      } else {
+        alert(`You have already signed up as a ${existingRole || "participant"} in the mentorship program.`);
+        return; // Exit the function early, preventing submission
+      }
     }
     
-    const user = auth.currentUser;
-    if (!user) return navigate("/login");
+    // Validate required fields based on role
+    if (!mentorshipRole) {
+      alert("Please select a role (Mentor or Mentee)");
+      return;
+    }
+    
+    console.log(`Validating fields for role: ${mentorshipRole}`);
+    
+    // Collect missing fields for better error messages
+    let missingFields = [];
+    
+    // Common fields
+    if (!major) missingFields.push("Major");
+    
+    if (mentorshipRole === "Mentor") {
+      if (!academicInterests) missingFields.push("Academic interests");
+      if (!mentorMotivation) missingFields.push("Motivation for being a mentor");
+      if (!firstGenChallenges) missingFields.push("First-generation challenges");
+      if (!mentorStrengths) missingFields.push("Mentor strengths");
+      if (!communicationStyle) missingFields.push("Communication style");
+      if (!desiredSupport) missingFields.push("Desired support");
+      
+      // Check if at least one topic is selected
+      const hasSelectedTopic = Object.values(mentorTopics).some(value => value === true);
+      if (!hasSelectedTopic) {
+        missingFields.push("At least one mentoring topic");
+      }
+    } else {
+      // Mentee validation
+      if (!expectations) missingFields.push("Expectations");
+      if (!careerGoals) missingFields.push("Career goals");
+      if (!challenges) missingFields.push("Challenges");
+      if (!experienceSummary) missingFields.push("Experience summary");
+    }
+    
+    // If validation fails, show detailed error message
+    if (missingFields.length > 0) {
+      console.warn("Form validation failed. Missing fields:", missingFields);
+      alert(`Please fill in the following required fields:\n- ${missingFields.join('\n- ')}`);
+      return;
+    }
+    
+    console.log("Form validation passed. Proceeding with submission.");
+    
+    console.log("Proceeding with mentorship signup submission");
 
     // Base mentorship data
     const mentorshipData = {
       userId: user.uid,
       mentorshipRole,
       expectations,
-
       linkedinProfile,
       major,
       hasResume: resumeFile !== null,
@@ -354,19 +431,45 @@ const MentorshipSignup = () => {
     }
 
     try {
-      // Save to Firestore
-      await firestore.collection("mentorship_signups").doc(user.uid).set(mentorshipData);
+      setLoading(true);
+      
+      console.log("Saving mentorship signup to Firestore...");
+      
+      // Save to Firestore first
+      try {
+        await firestore.collection("mentorship_signups").doc(user.uid).set(mentorshipData);
+        console.log("Successfully saved to Firestore");
+      } catch (firestoreError) {
+        console.error("Error saving to Firestore:", firestoreError);
+        throw new Error(`Database error: ${firestoreError.message}`);
+      }
 
       // Send file separately if exists
       if (resumeFile) {
+        console.log("Uploading resume file...");
         const formData = new FormData();
         formData.append('file', resumeFile);
         formData.append('userId', user.uid);
         
-        await fetch("http://127.0.0.1:5001/save-resume", {
-          method: "POST",
-          body: formData,
-        });
+        // Use API URL from environment variables
+        const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
+        
+        try {
+          const fileResponse = await fetch(`${apiUrl}/save-resume`, {
+            method: "POST",
+            body: formData,
+          });
+          
+          if (!fileResponse.ok) {
+            console.warn(`Resume upload status: ${fileResponse.status}`);
+            console.warn("Resume upload failed, but continuing with signup");
+          } else {
+            console.log("Resume uploaded successfully");
+          }
+        } catch (fileError) {
+          console.warn("Error uploading resume:", fileError);
+          // Continue anyway - file upload is optional
+        }
       }
 
       // Get CSRF token if needed (could be implemented server-side)
@@ -380,43 +483,94 @@ const MentorshipSignup = () => {
       // Use API URL from environment variables
       const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
       
+      console.log(`Sending data to matching API at ${apiUrl}/match`);
+      
       // Send data to the AI Matching API
-      const response = await fetch(`${apiUrl}/match`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "X-Requested-With": "XMLHttpRequest" // Helps prevent CSRF
-        },
-        credentials: 'same-origin', // For cookies if using session-based auth
-        body: JSON.stringify(mentorshipData),
-      });
+      try {
+        const response = await fetch(`${apiUrl}/match`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "X-Requested-With": "XMLHttpRequest" // Helps prevent CSRF
+          },
+          credentials: 'same-origin', // For cookies if using session-based auth
+          body: JSON.stringify(mentorshipData),
+        });
 
-      const result = await response.json();
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`API error: ${response.status} - ${errorText}`);
+          throw new Error(`Server error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log("API match result:", result);
 
-      alert("Mentorship signup successful! " + (result.matchResult || "Your application has been received."));
-      navigate("/dashboard");
+        // Success! Show message and navigate to dashboard
+        setLoading(false);
+        
+        // Show a more informative success message
+        const successMessage = result.matchResult || "Your application has been received.";
+        alert(`Mentorship signup successful! ${successMessage}\n\nYou'll be redirected to your dashboard.`);
+        
+        // Add a small delay before redirecting for better user experience
+        setTimeout(() => {
+          navigate("/dashboard");
+        }, 500);
+      } catch (apiError) {
+        console.error("Error calling matching API:", apiError);
+        
+        // Even if API fails, the data is already in Firestore
+        setLoading(false);
+        alert("Your application has been saved, but there was an error with the matching service. Your application will be processed manually.");
+        navigate("/dashboard");
+      }
     } catch (error) {
-      console.error("Error signing up:", error);
-      alert("There was an error submitting your application. Please try again.");
+      console.error("Error in signup process:", error);
+      setLoading(false);
+      alert(`There was an error submitting your application: ${error.message}. Please try again.`);
     }
   };
 
-  if (loading) return <p>Loading...</p>;
-
-
-  // This function was removed as requested
+  if (loading) return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '2rem',
+      minHeight: '300px',
+      textAlign: 'center'
+    }}>
+      <div style={{
+        fontSize: '1.2rem',
+        color: '#1a365d',
+        marginBottom: '1rem'
+      }}>
+        Processing your mentorship application...
+      </div>
+      <div style={{
+        width: '50px',
+        height: '50px',
+        border: '5px solid #e2e8f0',
+        borderTopColor: '#1a365d',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite',
+      }}></div>
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
 
   return (
     <div style={styles.container}>
       <h1 style={styles.title}>Join the Mentorship Program</h1>
       <p style={styles.description}>Sign up as a mentor or mentee and share your thoughts to find the best match.</p>
 
-      {/* Error Message */}
-    {signupError && (
-      <div style={styles.errorBox}>
-        <p>{signupError}</p>
-      </div>
-    )}
+      {/* Error Message - removed as requested */}
     {/* Existing Signup Alert */}
     {hasExistingSignup && (
       <div style={styles.alertBox}>
@@ -751,7 +905,10 @@ const styles = {
   description: { fontSize: "1rem", color: "#555", marginBottom: "1.5rem" },
   form: { display: "flex", flexDirection: "column", gap: "1.5rem" },
   formGroup: { textAlign: "left" },
-
+  errorBox: { backgroundColor: "#FED7D7", borderRadius: "6px", padding: "1rem", marginBottom: "1rem", color: "#822727" },
+  alertBox: { backgroundColor: "#FFF5F5", borderRadius: "6px", padding: "1.5rem", marginBottom: "1.5rem", border: "1px solid #FC8181" },
+  alertText: { color: "#C53030", marginBottom: "1rem" },
+  dashboardButton: { backgroundColor: "#2D3748", color: "white", padding: "0.75rem 1.25rem", borderRadius: "6px", border: "none", cursor: "pointer", fontWeight: "600" },
   labelContainer: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" },
   label: { fontSize: "1rem", fontWeight: "600", color: "#1a365d" },
   input: { width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #cbd5e0", fontSize: "1rem", backgroundColor: "white" },

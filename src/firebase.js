@@ -5,20 +5,20 @@ import 'firebase/compat/storage';
 
 // Firebase configuration for Trinity First project
 const firebaseConfig = {
-  apiKey: "AIzaSyC5xYdgv_429ez87XjUDSJEBSJPtd-UYwE",
-  authDomain: "trinity-first-13999.firebaseapp.com",
-  projectId: "trinity-first-13999",
-  storageBucket: "trinity-first-13999.firebasestorage.app",
-  messagingSenderId: "924160147196",
-  appId: "1:924160147196:web:fe6d4012838ff62831e179",
-  measurementId: "G-4X8Y84411E"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase only once
 let firebaseApp;
 if (!firebase.apps.length) {
   firebaseApp = firebase.initializeApp(firebaseConfig);
-  console.log("Firebase initialized successfully with config:", JSON.stringify(firebaseConfig));
+  console.log("Firebase initialized successfully");
 } else {
   firebaseApp = firebase.app();
 }
