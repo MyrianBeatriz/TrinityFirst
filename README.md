@@ -132,6 +132,4 @@ The following security improvements have been implemented to address security co
 3. Access the application at http://localhost:3000
 
 
-## License
 
-[MIT License](LICENSE)
