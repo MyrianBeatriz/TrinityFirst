@@ -15,12 +15,11 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase only once
-let firebaseApp;
 if (!firebase.apps.length) {
-  firebaseApp = firebase.initializeApp(firebaseConfig);
+  firebase.initializeApp(firebaseConfig);
   console.log("Firebase initialized successfully");
 } else {
-  firebaseApp = firebase.app();
+  firebase.app();
 }
 
 // Export Firebase services - only after initialization

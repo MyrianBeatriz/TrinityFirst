@@ -200,3 +200,32 @@ Updates the status of a match (confirm or reject).
 3. **Mock mode vs. Firebase mode**:
    - The system can operate in "mock mode" without Firebase
    - Check the server startup logs to see which mode is active
+
+## Security Setup
+
+### API Keys and Credentials
+
+This application requires two main credentials:
+1. **Firebase Service Account Key**: Used to authenticate with Firebase Firestore
+2. **Gemini API Key**: Used to access Google's Gemini AI API
+
+**IMPORTANT: Never commit these credentials to the repository.**
+
+### Proper Credential Setup
+
+1. Store your Firebase service account key file securely OUTSIDE of the project directory
+   - Go to Firebase Console > Project Settings > Service Accounts
+   - Generate a new private key (JSON file)
+   - Save it in a secure location not tracked by git
+
+2. Set environment variables in your `.env` file:
+   ```
+   FIREBASE_CREDENTIALS_PATH=/path/to/your/secure/service-account-key.json
+   GEMINI_API_KEY=your-gemini-api-key
+   ```
+
+3. When deploying to production:
+   - Consider using a secrets manager service
+   - Set environment variables at the hosting/container level
+   - Rotate credentials regularly
+   - Use the principle of least privilege for service accounts

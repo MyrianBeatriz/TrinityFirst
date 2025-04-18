@@ -68,7 +68,9 @@ export class MentorshipService {
   // Generate new AI matches
   static async generateMatches() {
     try {
-      const response = await fetch("http://127.0.0.1:5000/generate-matches", {
+      // Use API URL from environment with fallback to localhost
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5001";
+      const response = await fetch(`${apiUrl}/generate-matches`, {
         method: "POST",
         headers: { "Content-Type": "application/json" }
       });

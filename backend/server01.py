@@ -43,19 +43,20 @@ if not GEMINI_API_KEY:
 else:
     USE_AI = True
 
-# Get Firebase credentials path from environment variable with fallback
-FIREBASE_CREDENTIALS_PATH = os.environ.get(
-    "FIREBASE_CREDENTIALS_PATH", 
-    os.path.join(os.path.dirname(__file__), "trinity-first-13999-firebase-adminsdk-qrrx7-9031665a31.json")
-)
+# Get Firebase credentials path from environment variable
+FIREBASE_CREDENTIALS_PATH = os.environ.get("FIREBASE_CREDENTIALS_PATH")
+if not FIREBASE_CREDENTIALS_PATH:
+    print("WARNING: FIREBASE_CREDENTIALS_PATH environment variable is not set")
+    USE_FIREBASE = False
 
 # Make sure the credentials file exists, otherwise use mock mode
-if not os.path.exists(FIREBASE_CREDENTIALS_PATH):
-    print(f"WARNING: Firebase credentials file not found at: {FIREBASE_CREDENTIALS_PATH}")
+if FIREBASE_CREDENTIALS_PATH and os.path.exists(FIREBASE_CREDENTIALS_PATH):
+    USE_FIREBASE = True
+else:
+    if FIREBASE_CREDENTIALS_PATH:
+        print(f"WARNING: Firebase credentials file not found at: {FIREBASE_CREDENTIALS_PATH}")
     print("Running in mock mode without Firebase.")
     USE_FIREBASE = False
-else:
-    USE_FIREBASE = True
 
 # Initialize Firebase Admin SDK if credentials are available
 if USE_FIREBASE:
@@ -100,6 +101,10 @@ else:
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
+    
+# Default API port (can be overridden by PORT environment variable)
+# IMPORTANT: This should match the port used in frontend code (defaulting to 5001)
+DEFAULT_PORT = 5002
 
 # Mock content generator for when AI is not available
 def get_mock_role_specific_content(role):
@@ -499,20 +504,26 @@ def generate_role_specific_content(text_content, role):
         traceback.print_exc()  # Print stack trace for debugging
         return get_error_response(role, "content_generation_error")
 
-@app.route("/match", methods=["POST"])
+@app.route("/match", methods=["POST", "OPTIONS"])
 def match():
     """Process mentorship signup data"""
+    # Handle preflight OPTIONS request
+    if request.method == "OPTIONS":
+        return "", 200
+        
     try:
         data = request.json
         user_id = data.get("userId")
+        force_signup = data.get("forceSignup", False)  # Add option to force signup for testing
 
         print(f"Received signup for user {user_id}")
 
         # Check if user has already signed up (if Firebase is available)
-        if user_id and USE_FIREBASE and db:
+        if user_id and USE_FIREBASE and db and not force_signup:
             try:
                 existing_signup = db.collection("mentorship_signups").document(user_id).get()
                 if existing_signup.exists:
+                    # Store in variable to avoid repeated logging
                     print(f"User {user_id} has already signed up")
                     return jsonify({
                         "status": "error",
@@ -567,8 +578,8 @@ def check_signup_status():
             existing_signup = db.collection("mentorship_signups").document(user_id).get()
             
             # Check if user is already in a match
-            mentee_matches = db.collection("mentorship_matches").where("menteeId", "==", user_id).get()
-            mentor_matches = db.collection("mentorship_matches").where("mentorId", "==", user_id).get()
+            mentee_matches = db.collection("mentorship_matches").filter("menteeId", "==", user_id).get()
+            mentor_matches = db.collection("mentorship_matches").filter("mentorId", "==", user_id).get()
             
             has_match = len(list(mentee_matches)) > 0 or len(list(mentor_matches)) > 0
             
@@ -695,6 +706,11 @@ def generate_matches():
         """
 
         print("Sending prompt to Gemini API")
+        # Check if AI is available first
+        if not USE_AI or not GEMINI_API_KEY:
+            print("AI is not available, returning mock matches")
+            return generate_mock_matches(mentors, mentees)
+            
         try:
             # Use Gemini 2.5
             print(f"Attempting to generate matches with model: {GEMINI_MODEL}")
@@ -1030,99 +1046,7 @@ def create_test_match():
         logger.error(f"Error creating test match: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route("/get-user-matches", methods=["POST"])
-def get_user_matches():
-    """Get all matches for a specific user (as mentor or mentee)"""
-    try:
-        data = request.json
-        user_id = data.get("userId")
-        
-        if not user_id:
-            return jsonify({"error": "User ID is required"}), 400
-        
-        # For mock mode - load matches from local storage
-        if not USE_FIREBASE or not db:
-            print(f"Using local storage to fetch matches for user {user_id}")
-            mock_data_dir = os.path.join(os.path.dirname(__file__), "mock_data")
-            mock_matches_file = os.path.join(mock_data_dir, "mentorship_matches.json")
-            
-            mentee_matches = []
-            mentor_matches = []
-            
-            if os.path.exists(mock_matches_file):
-                try:
-                    with open(mock_matches_file, 'r') as f:
-                        all_matches = json.load(f)
-                        print(f"Loaded {len(all_matches)} matches from mock storage")
-                        
-                        # Filter matches for this user
-                        for match in all_matches:
-                            if match.get("menteeId") == user_id:
-                                mentee_matches.append(match)
-                            elif match.get("mentorId") == user_id:
-                                mentor_matches.append(match)
-                                
-                        print(f"Found {len(mentee_matches)} mentee matches and {len(mentor_matches)} mentor matches")
-                except Exception as e:
-                    print(f"Error loading mock matches: {str(e)}")
-            
-            # If no matches found in storage, create a default one
-            if not mentee_matches and not mentor_matches:
-                mentee_matches = [
-                    {
-                        "id": "mock-match-1",
-                        "menteeId": user_id,
-                        "mentorId": "mock-mentor-1",
-                        "status": "approved",
-                        "matchReason": "This is a mock match for testing",
-                        "compatibilityScore": 85,
-                        "createdAt": datetime.datetime.now().isoformat()
-                    }
-                ]
-                
-            return jsonify({
-                "menteeMatches": mentee_matches,
-                "mentorMatches": mentor_matches,
-                "mock": True
-            })
-            
-        try:
-            # Get matches where user is a mentee
-            mentee_matches_query = db.collection("mentorship_matches").where("menteeId", "==", user_id).get()
-            mentee_matches = []
-            
-            for doc in mentee_matches_query:
-                match_data = doc.to_dict()
-                match_data["id"] = doc.id  # Add the document ID
-                mentee_matches.append(match_data)
-                
-            # Get matches where user is a mentor
-            mentor_matches_query = db.collection("mentorship_matches").where("mentorId", "==", user_id).get()
-            mentor_matches = []
-            
-            for doc in mentor_matches_query:
-                match_data = doc.to_dict()
-                match_data["id"] = doc.id  # Add the document ID
-                mentor_matches.append(match_data)
-                
-            print(f"Found {len(mentee_matches)} mentee matches and {len(mentor_matches)} mentor matches for user {user_id}")
-            
-            return jsonify({
-                "menteeMatches": mentee_matches,
-                "mentorMatches": mentor_matches
-            })
-            
-        except Exception as e:
-            print(f"Error retrieving matches from Firestore: {str(e)}")
-            return jsonify({
-                "error": str(e),
-                "menteeMatches": [],
-                "mentorMatches": []
-            }), 500
-            
-    except Exception as e:
-        print(f"Error in get_user_matches: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/update-match-status", methods=["POST"])
 def update_match_status():
@@ -1246,6 +1170,8 @@ def update_match_status():
         print(f"Error in update_match_status: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+
+
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint"""
@@ -1259,4 +1185,6 @@ def health_check():
     })
 
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    # Use environment variable for port with fallback to default
+    port = int(os.environ.get("PORT", DEFAULT_PORT))
+    app.run(debug=True, host='0.0.0.0', port=port)

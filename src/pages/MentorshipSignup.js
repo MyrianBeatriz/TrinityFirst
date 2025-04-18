@@ -21,7 +21,7 @@ const MentorshipSignup = () => {
   // Duplicate signup prevention states
   const [hasExistingSignup, setHasExistingSignup] = useState(false);
   const [existingRole, setExistingRole] = useState(null);
-  const [signupError, setSignupError] = useState(null);
+  // const [signupError, setSignupError] = useState(null); // Removed unused state
   
   // Mentor specific fields
   const [academicInterests, setAcademicInterests] = useState("");

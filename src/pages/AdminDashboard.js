@@ -14,12 +14,7 @@ import {
   addDoc
 } from "firebase/firestore";
 
-import { 
-  ref, 
-  uploadBytes, 
-  getDownloadURL, 
-  deleteObject 
-} from "firebase/storage";
+// Firebase storage imports removed as they're not being used
 
 
 
@@ -267,7 +262,11 @@ const AdminDashboard = () => {
         maxMenteesPerMentor: matchingData.maxMenteesPerMentor
       });
       
-      const response = await fetch("http://127.0.0.1:5001/generate-matches", {
+      // Use API URL from environment with fallback
+      const apiUrl = process.env.REACT_APP_API_URL || "http://127.0.0.1:5002";
+      console.log("Using API URL:", apiUrl);
+      
+      const response = await fetch(`${apiUrl}/generate-matches`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(matchingData)
