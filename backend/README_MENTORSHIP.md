@@ -185,22 +185,6 @@ Updates the status of a match (confirm or reject).
    ./test_mentorship_flow.sh
    ```
 
-## Troubleshooting
-
-1. **Matches not showing in dashboard**: 
-   - Check if the match ID is correctly stored in the database
-   - Verify the `get-user-matches` endpoint is returning data
-   - Ensure the Dashboard.js is correctly handling matches with the right status
-
-2. **Match confirmation/rejection not working**:
-   - Check if match IDs are passed correctly
-   - Verify the user has permission to update the match 
-   - Check the server logs for any errors
-
-3. **Mock mode vs. Firebase mode**:
-   - The system can operate in "mock mode" without Firebase
-   - Check the server startup logs to see which mode is active
-
 ## Security Setup
 
 ### API Keys and Credentials
