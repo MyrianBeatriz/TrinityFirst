@@ -23,7 +23,7 @@ A web application designed to connect and support first-generation college stude
 
 ## Security Improvements
 
-The following security improvements have been implemented to address security concerns:
+The following security improvements have been implemented to address security concerns before sharing first demo:
 
 ### Frontend Security
 
