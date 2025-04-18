@@ -131,32 +131,6 @@ The following security improvements have been implemented to address security co
 
 3. Access the application at http://localhost:3000
 
-## Security Considerations
-
-- Never commit `.env` files or any files containing API keys or credentials
-- Use environment variables for all sensitive configuration
-- Store Firebase service account key securely:
-  - For development: Store outside the repository and reference via FIREBASE_CREDENTIALS_PATH
-  - For production: Use a secrets manager or secure environment variables
-- Validate all user inputs on both client and server sides
-- Implement proper CORS restrictions in production
-- Set up Firebase security rules to restrict data access
-- Regularly update dependencies to patch security vulnerabilities
-- Enable file encryption in production environments
-- Implement CSRF protection for all state-changing operations
-- Rotate API keys and credentials regularly
-- Use the least privileged access principle for service accounts
-
-## Contributing
-
-Please follow these guidelines when contributing to the codebase:
-
-1. Use functional components with hooks in React
-2. Follow consistent error handling patterns
-3. Validate all user inputs
-4. Document new API endpoints
-5. Write tests for critical functionality
-6. Follow security best practices
 
 ## License
 
